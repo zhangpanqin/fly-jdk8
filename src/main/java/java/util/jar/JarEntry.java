@@ -26,15 +26,16 @@
 package java.util.jar;
 
 import java.io.IOException;
-import java.util.zip.ZipEntry;
 import java.security.CodeSigner;
 import java.security.cert.Certificate;
+import java.util.zip.ZipEntry;
 
 /**
  * This class is used to represent a JAR file entry.
+ *
+ * @author zhangpanqin
  */
-public
-class JarEntry extends ZipEntry {
+public class JarEntry extends ZipEntry {
     Attributes attr;
     Certificate[] certs;
     CodeSigner[] signers;
@@ -44,9 +45,9 @@ class JarEntry extends ZipEntry {
      * entry name.
      *
      * @param name the JAR file entry name
-     * @exception NullPointerException if the entry name is <code>null</code>
-     * @exception IllegalArgumentException if the entry name is longer than
-     *            0xFFFF bytes.
+     * @throws NullPointerException     if the entry name is <code>null</code>
+     * @throws IllegalArgumentException if the entry name is longer than
+     *                                  0xFFFF bytes.
      */
     public JarEntry(String name) {
         super(name);
@@ -55,6 +56,7 @@ class JarEntry extends ZipEntry {
     /**
      * Creates a new <code>JarEntry</code> with fields taken from the
      * specified <code>ZipEntry</code> object.
+     *
      * @param ze the <code>ZipEntry</code> object to create the
      *           <code>JarEntry</code> from
      */
@@ -69,7 +71,7 @@ class JarEntry extends ZipEntry {
      * @param je the <code>JarEntry</code> to copy
      */
     public JarEntry(JarEntry je) {
-        this((ZipEntry)je);
+        this((ZipEntry) je);
         this.attr = je.attr;
         this.certs = je.certs;
         this.signers = je.signers;
@@ -81,7 +83,7 @@ class JarEntry extends ZipEntry {
      *
      * @return the <code>Manifest</code> <code>Attributes</code> for this
      * entry, or <code>null</code> if none
-     * @throws IOException  if an I/O error has occurred
+     * @throws IOException if an I/O error has occurred
      */
     public Attributes getAttributes() throws IOException {
         return attr;
@@ -120,7 +122,6 @@ class JarEntry extends ZipEntry {
      *
      * @return the <code>CodeSigner</code> objects for this entry, or
      * <code>null</code> if none.
-     *
      * @since 1.5
      */
     public CodeSigner[] getCodeSigners() {
