@@ -1,28 +1,3 @@
-/*
- * Copyright (c) 1997, 2017, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
 package java.lang.ref;
 
 import sun.misc.Cleaner;
@@ -34,13 +9,35 @@ import sun.misc.Cleaner;
 
 public abstract class Reference<T> {
 
+    /**
+     * 引用的对象值.gc 的时候,垃圾回收器会处理
+     */
     private T referent;
 
+    /**
+     * 当 referent 要回收的时候,将对应的 Reference 放入 queue 队列中
+     */
     volatile ReferenceQueue<? super T> queue;
-
+    /* When active:   NULL
+     *     pending:   this ,有 jvm 设置
+     *    Enqueued:   next reference in queue (or this if last)(队列后进先出)
+     *    Inactive:   this
+     * 此对象有队列维护
+     */
     volatile Reference next;
 
-    transient private Reference<T> discovered;
+    /* When active:   next element in a discovered reference list maintained by GC (or this if last)
+     *     pending:   next element in the pending list (or null if last)
+     *   otherwise:   NULL
+     * 进入队列的时候,下一个 pending 元素
+     */
+    transient private Reference<T> discovered; /* used by VM */
+
+    /* List of References waiting to be enqueued.  The collector adds
+     * References to this list, while the Reference-handler thread removes
+     * them.  This list is protected by the above lock object. The
+     * list uses the discovered field to link its elements.
+     */
     private static Reference<Object> pending = null;
 
     static private class Lock {
