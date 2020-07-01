@@ -29,55 +29,7 @@ import javax.management.openmbean.CompositeData;
 import sun.management.MemoryUsageCompositeData;
 
 /**
- * A <tt>MemoryUsage</tt> object represents a snapshot of memory usage.
- * Instances of the <tt>MemoryUsage</tt> class are usually constructed
- * by methods that are used to obtain memory usage
- * information about individual memory pool of the Java virtual machine or
- * the heap or non-heap memory of the Java virtual machine as a whole.
- *
- * <p> A <tt>MemoryUsage</tt> object contains four values:
- * <table summary="Describes the MemoryUsage object content">
- * <tr>
- * <td valign=top> <tt>init</tt> </td>
- * <td valign=top> represents the initial amount of memory (in bytes) that
- *      the Java virtual machine requests from the operating system
- *      for memory management during startup.  The Java virtual machine
- *      may request additional memory from the operating system and
- *      may also release memory to the system over time.
- *      The value of <tt>init</tt> may be undefined.
  * </td>
- * </tr>
- * <tr>
- * <td valign=top> <tt>used</tt> </td>
- * <td valign=top> represents the amount of memory currently used (in bytes).
- * </td>
- * </tr>
- * <tr>
- * <td valign=top> <tt>committed</tt> </td>
- * <td valign=top> represents the amount of memory (in bytes) that is
- *      guaranteed to be available for use by the Java virtual machine.
- *      The amount of committed memory may change over time (increase
- *      or decrease).  The Java virtual machine may release memory to
- *      the system and <tt>committed</tt> could be less than <tt>init</tt>.
- *      <tt>committed</tt> will always be greater than
- *      or equal to <tt>used</tt>.
- * </td>
- * </tr>
- * <tr>
- * <td valign=top> <tt>max</tt> </td>
- * <td valign=top> represents the maximum amount of memory (in bytes)
- *      that can be used for memory management. Its value may be undefined.
- *      The maximum amount of memory may change over time if defined.
- *      The amount of used and committed memory will always be less than
- *      or equal to <tt>max</tt> if <tt>max</tt> is defined.
- *      A memory allocation may fail if it attempts to increase the
- *      used memory such that <tt>used &gt; committed</tt> even
- *      if <tt>used &lt;= max</tt> would still be true (for example,
- *      when the system is low on virtual memory).
- * </td>
- * </tr>
- * </table>
- *
  * Below is a picture showing an example of a memory pool:
  *
  * <pre>
@@ -94,14 +46,6 @@ import sun.management.MemoryUsageCompositeData;
  *                  committed
  *        |----------------------------------------------|
  *                            max
- * </pre>
- *
- * <h3>MXBean Mapping</h3>
- * <tt>MemoryUsage</tt> is mapped to a {@link CompositeData CompositeData}
- * with attributes as specified in the {@link #from from} method.
- *
- * @author   Mandy Chung
- * @since   1.5
  */
 public class MemoryUsage {
     private final long init;
@@ -109,29 +53,7 @@ public class MemoryUsage {
     private final long committed;
     private final long max;
 
-    /**
-     * Constructs a <tt>MemoryUsage</tt> object.
-     *
-     * @param init      the initial amount of memory in bytes that
-     *                  the Java virtual machine allocates;
-     *                  or <tt>-1</tt> if undefined.
-     * @param used      the amount of used memory in bytes.
-     * @param committed the amount of committed memory in bytes.
-     * @param max       the maximum amount of memory in bytes that
-     *                  can be used; or <tt>-1</tt> if undefined.
-     *
-     * @throws IllegalArgumentException if
-     * <ul>
-     * <li> the value of <tt>init</tt> or <tt>max</tt> is negative
-     *      but not <tt>-1</tt>; or</li>
-     * <li> the value of <tt>used</tt> or <tt>committed</tt> is negative;
-     *      or</li>
-     * <li> <tt>used</tt> is greater than the value of <tt>committed</tt>;
-     *      or</li>
-     * <li> <tt>committed</tt> is greater than the value of <tt>max</tt>
-     *      <tt>max</tt> if defined.</li>
-     * </ul>
-     */
+
     public MemoryUsage(long init,
                        long used,
                        long committed,
