@@ -27,10 +27,6 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.*;
 
-/**
- * @author unascribed
- * @since JDK1.0
- */
 public final class Class<T> implements java.io.Serializable,
         GenericDeclaration,
         Type,
@@ -1563,64 +1559,18 @@ public final class Class<T> implements java.io.Serializable,
         return buf.toString();
     }
 
-    /**
-     * use serialVersionUID from JDK 1.1 for interoperability
-     */
     private static final long serialVersionUID = 3206093459760846163L;
 
 
-    /**
-     * Class Class is special cased within the Serialization Stream Protocol.
-     * <p>
-     * A Class instance is written initially into an ObjectOutputStream in the
-     * following format:
-     * <pre>
-     *      {@code TC_CLASS} ClassDescriptor
-     *      A ClassDescriptor is a special cased serialization of
-     *      a {@code java.io.ObjectStreamClass} instance.
-     * </pre>
-     * A new handle is generated for the initial time the class descriptor
-     * is written into the stream. Future references to the class descriptor
-     * are written as references to the initial class descriptor instance.
-     *
-     * @see java.io.ObjectStreamClass
-     */
     private static final ObjectStreamField[] serialPersistentFields =
             new ObjectStreamField[0];
 
 
-    /**
-     * Returns the assertion status that would be assigned to this
-     * class if it were to be initialized at the time this method is invoked.
-     * If this class has had its assertion status set, the most recent
-     * setting will be returned; otherwise, if any package default assertion
-     * status pertains to this class, the most recent setting for the most
-     * specific pertinent package default assertion status is returned;
-     * otherwise, if this class is not a system class (i.e., it has a
-     * class loader) its class loader's default assertion status is returned;
-     * otherwise, the system class default assertion status is returned.
-     * <p>
-     * Few programmers will have any need for this method; it is provided
-     * for the benefit of the JRE itself.  (It allows a class to determine at
-     * the time that it is initialized whether assertions should be enabled.)
-     * Note that this method is not guaranteed to return the actual
-     * assertion status that was (or will be) associated with the specified
-     * class when it was (or will be) initialized.
-     *
-     * @return the desired assertion status of the specified class.
-     * @see java.lang.ClassLoader#setClassAssertionStatus
-     * @see java.lang.ClassLoader#setPackageAssertionStatus
-     * @see java.lang.ClassLoader#setDefaultAssertionStatus
-     * @since 1.4
-     */
     public boolean desiredAssertionStatus() {
         ClassLoader loader = getClassLoader();
-        // If the loader is null this is a system class, so ask the VM
-        if (loader == null)
+        if (loader == null) {
             return desiredAssertionStatus0(this);
-
-        // If the classloader has been initialized with the assertion
-        // directives, ask it. Otherwise, ask the VM.
+        }
         synchronized (loader.assertionLock) {
             if (loader.classAssertionStatus != null) {
                 return loader.desiredAssertionStatus(getName());
@@ -1632,14 +1582,10 @@ public final class Class<T> implements java.io.Serializable,
     private static native boolean desiredAssertionStatus0(Class<?> clazz);
 
     public boolean isEnum() {
-        // An enum must both directly extend java.lang.Enum and have
-        // the ENUM bit set; classes for specialized enum constants
-        // don't do the former.
         return (this.getModifiers() & ENUM) != 0 &&
                 this.getSuperclass() == java.lang.Enum.class;
     }
 
-    // Fetches the factory for reflective objects
     private static ReflectionFactory getReflectionFactory() {
         if (reflectionFactory == null) {
             reflectionFactory =
@@ -1651,28 +1597,19 @@ public final class Class<T> implements java.io.Serializable,
 
     private static ReflectionFactory reflectionFactory;
 
-    // To be able to query system properties as soon as they're available
     private static boolean initted = false;
 
     private static void checkInitted() {
-        if (initted) return;
+        if (initted) {
+            return;
+        }
         AccessController.doPrivileged(new PrivilegedAction<Void>() {
+            @Override
             public Void run() {
-                // Tests to ensure the system properties table is fully
-                // initialized. This is needed because reflection code is
-                // called very early in the initialization process (before
-                // command-line arguments have been parsed and therefore
-                // these user-settable properties installed.) We assume that
-                // if System.out is non-null then the System class has been
-                // fully initialized and that the bulk of the startup code
-                // has been run.
-
                 if (System.out == null) {
-                    // java.lang.System not yet fully initialized
                     return null;
                 }
 
-                // Doesn't use Boolean.getBoolean to avoid class init.
                 String val =
                         System.getProperty("sun.reflect.noCaches");
                 if (val != null && val.equals("true")) {
@@ -1685,30 +1622,16 @@ public final class Class<T> implements java.io.Serializable,
         });
     }
 
-    /**
-     * Returns the elements of this enum class or null if this
-     * Class object does not represent an enum type.
-     *
-     * @return an array containing the values comprising the enum class
-     * represented by this Class object in the order they're
-     * declared, or null if this Class object does not
-     * represent an enum type
-     * @since 1.5
-     */
     public T[] getEnumConstants() {
         T[] values = getEnumConstantsShared();
         return (values != null) ? values.clone() : null;
     }
 
-    /**
-     * Returns the elements of this enum class or null if this
-     * Class object does not represent an enum type;
-     * identical to getEnumConstants except that the result is
-     * uncloned, cached, and shared by all callers.
-     */
     T[] getEnumConstantsShared() {
         if (enumConstants == null) {
-            if (!isEnum()) return null;
+            if (!isEnum()) {
+                return null;
+            }
             try {
                 final Method values = getMethod("values");
                 java.security.AccessController.doPrivileged(
@@ -1721,8 +1644,6 @@ public final class Class<T> implements java.io.Serializable,
                 T[] temporaryConstants = (T[]) values.invoke(null);
                 enumConstants = temporaryConstants;
             }
-            // These can happen when users concoct enum-like classes
-            // that don't comply with the enum spec.
             catch (InvocationTargetException | NoSuchMethodException |
                     IllegalAccessException ex) {
                 return null;
@@ -1733,22 +1654,17 @@ public final class Class<T> implements java.io.Serializable,
 
     private volatile transient T[] enumConstants = null;
 
-    /**
-     * Returns a map from simple name to enum constant.  This package-private
-     * method is used internally by Enum to implement
-     * {@code public static <T extends Enum<T>> T valueOf(Class<T>, String)}
-     * efficiently.  Note that the map is returned by this method is
-     * created lazily on first use.  Typically it won't ever get created.
-     */
     Map<String, T> enumConstantDirectory() {
         if (enumConstantDirectory == null) {
             T[] universe = getEnumConstantsShared();
-            if (universe == null)
+            if (universe == null) {
                 throw new IllegalArgumentException(
                         getName() + " is not an enum type");
+            }
             Map<String, T> m = new HashMap<>(2 * universe.length);
-            for (T constant : universe)
+            for (T constant : universe) {
                 m.put(((Enum<?>) constant).name(), constant);
+            }
             enumConstantDirectory = m;
         }
         return enumConstantDirectory;
@@ -1757,18 +1673,12 @@ public final class Class<T> implements java.io.Serializable,
     private volatile transient Map<String, T> enumConstantDirectory = null;
 
     /**
-     * Casts an object to the class or interface represented
-     * by this {@code Class} object.
-     *
-     * @param obj the object to be cast
-     * @return the object after casting, or null if obj is null
-     * @throws ClassCastException if the object is not
-     *                            null and is not assignable to the type T.
-     * @since 1.5
+     * 强转对象
      */
     public T cast(Object obj) {
-        if (obj != null && !isInstance(obj))
+        if (obj != null && !isInstance(obj)) {
             throw new ClassCastException(cannotCastMsg(obj));
+        }
         return (T) obj;
     }
 
@@ -1776,59 +1686,27 @@ public final class Class<T> implements java.io.Serializable,
         return "Cannot cast " + obj.getClass().getName() + " to " + getName();
     }
 
-    /**
-     * Casts this {@code Class} object to represent a subclass of the class
-     * represented by the specified class object.  Checks that the cast
-     * is valid, and throws a {@code ClassCastException} if it is not.  If
-     * this method succeeds, it always returns a reference to this class object.
-     *
-     * <p>This method is useful when a client needs to "narrow" the type of
-     * a {@code Class} object to pass it to an API that restricts the
-     * {@code Class} objects that it is willing to accept.  A cast would
-     * generate a compile-time warning, as the correctness of the cast
-     * could not be checked at runtime (because generic types are implemented
-     * by erasure).
-     *
-     * @param <U>   the type to cast this class object to
-     * @param clazz the class of the type to cast this class object to
-     * @return this {@code Class} object, cast to represent a subclass of
-     * the specified class object.
-     * @throws ClassCastException if this {@code Class} object does not
-     *                            represent a subclass of the specified class (here "subclass" includes
-     *                            the class itself).
-     * @since 1.5
-     */
     public <U> Class<? extends U> asSubclass(Class<U> clazz) {
-        if (clazz.isAssignableFrom(this))
+        if (clazz.isAssignableFrom(this)) {
             return (Class<? extends U>) this;
-        else
+        } else {
             throw new ClassCastException(this.toString());
+        }
     }
 
-    /**
-     * @throws NullPointerException {@inheritDoc}
-     * @since 1.5
-     */
+    @Override
     public <A extends Annotation> A getAnnotation(Class<A> annotationClass) {
         Objects.requireNonNull(annotationClass);
 
         return (A) annotationData().annotations.get(annotationClass);
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * @throws NullPointerException {@inheritDoc}
-     * @since 1.5
-     */
+    @Override
     public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
         return GenericDeclaration.super.isAnnotationPresent(annotationClass);
     }
 
-    /**
-     * @throws NullPointerException {@inheritDoc}
-     * @since 1.8
-     */
+    @Override
     public <A extends Annotation> A[] getAnnotationsByType(Class<A> annotationClass) {
         Objects.requireNonNull(annotationClass);
 
@@ -1838,27 +1716,20 @@ public final class Class<T> implements java.io.Serializable,
                 annotationClass);
     }
 
-    /**
-     * @since 1.5
-     */
+
+    @Override
     public Annotation[] getAnnotations() {
         return AnnotationParser.toArray(annotationData().annotations);
     }
 
-    /**
-     * @throws NullPointerException {@inheritDoc}
-     * @since 1.8
-     */
+    @Override
     public <A extends Annotation> A getDeclaredAnnotation(Class<A> annotationClass) {
         Objects.requireNonNull(annotationClass);
 
         return (A) annotationData().declaredAnnotations.get(annotationClass);
     }
 
-    /**
-     * @throws NullPointerException {@inheritDoc}
-     * @since 1.8
-     */
+    @Override
     public <A extends Annotation> A[] getDeclaredAnnotationsByType(Class<A> annotationClass) {
         Objects.requireNonNull(annotationClass);
 
@@ -1866,9 +1737,7 @@ public final class Class<T> implements java.io.Serializable,
                 annotationClass);
     }
 
-    /**
-     * @since 1.5
-     */
+    @Override
     public Annotation[] getDeclaredAnnotations() {
         return AnnotationParser.toArray(annotationData().declaredAnnotations);
     }
