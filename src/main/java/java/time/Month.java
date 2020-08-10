@@ -1,108 +1,16 @@
-/*
- * Copyright (c) 2012, 2015, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
-/*
- *
- *
- *
- *
- *
- * Copyright (c) 2007-2012, Stephen Colebourne & Michael Nascimento Santos
- *
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- *  * Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- *  * Neither the name of JSR-310 nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package java.time;
-
-import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
-import static java.time.temporal.ChronoUnit.MONTHS;
 
 import java.time.chrono.Chronology;
 import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.TextStyle;
-import java.time.temporal.ChronoField;
-import java.time.temporal.Temporal;
-import java.time.temporal.TemporalAccessor;
-import java.time.temporal.TemporalAdjuster;
-import java.time.temporal.TemporalField;
-import java.time.temporal.TemporalQueries;
-import java.time.temporal.TemporalQuery;
-import java.time.temporal.UnsupportedTemporalTypeException;
-import java.time.temporal.ValueRange;
+import java.time.temporal.*;
 import java.util.Locale;
 
-/**
- * A month-of-year, such as 'July'.
- * <p>
- * {@code Month} is an enum representing the 12 months of the year -
- * January, February, March, April, May, June, July, August, September, October,
- * November and December.
- * <p>
- * In addition to the textual enum name, each month-of-year has an {@code int} value.
- * The {@code int} value follows normal usage and the ISO-8601 standard,
- * from 1 (January) to 12 (December). It is recommended that applications use the enum
- * rather than the {@code int} value to ensure code clarity.
- * <p>
- * <b>Do not use {@code ordinal()} to obtain the numeric representation of {@code Month}.
- * Use {@code getValue()} instead.</b>
- * <p>
- * This enum represents a common concept that is found in many calendar systems.
- * As such, this enum may be used by any calendar system that has the month-of-year
- * concept defined exactly equivalent to the ISO-8601 calendar system.
- *
- * @implSpec
- * This is an immutable and thread-safe enum.
- *
- * @since 1.8
- */
+import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
+import static java.time.temporal.ChronoUnit.MONTHS;
+
+
 public enum Month implements TemporalAccessor, TemporalAdjuster {
 
     /**
@@ -171,6 +79,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
     private static final Month[] ENUMS = Month.values();
 
     //-----------------------------------------------------------------------
+
     /**
      * Obtains an instance of {@code Month} from an {@code int} value.
      * <p>
@@ -178,7 +87,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * This factory allows the enum to be obtained from the {@code int} value.
      * The {@code int} value follows the ISO-8601 standard, from 1 (January) to 12 (December).
      *
-     * @param month  the month-of-year to represent, from 1 (January) to 12 (December)
+     * @param month the month-of-year to represent, from 1 (January) to 12 (December)
      * @return the month-of-year, not null
      * @throws DateTimeException if the month-of-year is invalid
      */
@@ -190,6 +99,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Obtains an instance of {@code Month} from a temporal object.
      * <p>
@@ -204,7 +114,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * This method matches the signature of the functional interface {@link TemporalQuery}
      * allowing it to be used as a query via method reference, {@code Month::from}.
      *
-     * @param temporal  the temporal object to convert, not null
+     * @param temporal the temporal object to convert, not null
      * @return the month-of-year, not null
      * @throws DateTimeException if unable to convert to a {@code Month}
      */
@@ -224,6 +134,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Gets the month-of-year {@code int} value.
      * <p>
@@ -237,6 +148,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Gets the textual representation, such as 'Jan' or 'December'.
      * <p>
@@ -247,7 +159,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * If no textual mapping is found then the {@link #getValue() numeric value} is returned.
      *
      * @param style  the length of the text required, not null
-     * @param locale  the locale to use, not null
+     * @param locale the locale to use, not null
      * @return the text value of the month-of-year, not null
      */
     public String getDisplayName(TextStyle style, Locale locale) {
@@ -255,6 +167,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Checks if the specified field is supported.
      * <p>
@@ -271,7 +184,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * passing {@code this} as the argument.
      * Whether the field is supported is determined by the field.
      *
-     * @param field  the field to check, null returns false
+     * @param field the field to check, null returns false
      * @return true if the field is supported on this month-of-year, false if not
      */
     @Override
@@ -299,9 +212,9 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * passing {@code this} as the argument.
      * Whether the range can be obtained is determined by the field.
      *
-     * @param field  the field to query the range for, not null
+     * @param field the field to query the range for, not null
      * @return the range of valid values for the field, not null
-     * @throws DateTimeException if the range for the field cannot be obtained
+     * @throws DateTimeException                if the range for the field cannot be obtained
      * @throws UnsupportedTemporalTypeException if the field is not supported
      */
     @Override
@@ -329,13 +242,13 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * passing {@code this} as the argument. Whether the value can be obtained,
      * and what the value represents, is determined by the field.
      *
-     * @param field  the field to get, not null
+     * @param field the field to get, not null
      * @return the value for the field, within the valid range of values
-     * @throws DateTimeException if a value for the field cannot be obtained or
-     *         the value is outside the range of valid values for the field
+     * @throws DateTimeException                if a value for the field cannot be obtained or
+     *                                          the value is outside the range of valid values for the field
      * @throws UnsupportedTemporalTypeException if the field is not supported or
-     *         the range of values exceeds an {@code int}
-     * @throws ArithmeticException if numeric overflow occurs
+     *                                          the range of values exceeds an {@code int}
+     * @throws ArithmeticException              if numeric overflow occurs
      */
     @Override
     public int get(TemporalField field) {
@@ -361,11 +274,11 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * passing {@code this} as the argument. Whether the value can be obtained,
      * and what the value represents, is determined by the field.
      *
-     * @param field  the field to get, not null
+     * @param field the field to get, not null
      * @return the value for the field
-     * @throws DateTimeException if a value for the field cannot be obtained
+     * @throws DateTimeException                if a value for the field cannot be obtained
      * @throws UnsupportedTemporalTypeException if the field is not supported
-     * @throws ArithmeticException if numeric overflow occurs
+     * @throws ArithmeticException              if numeric overflow occurs
      */
     @Override
     public long getLong(TemporalField field) {
@@ -378,6 +291,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns the month-of-year that is the specified number of quarters after this one.
      * <p>
@@ -386,7 +300,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param months  the months to add, positive or negative
+     * @param months the months to add, positive or negative
      * @return the resulting month, not null
      */
     public Month plus(long months) {
@@ -402,7 +316,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param months  the months to subtract, positive or negative
+     * @param months the months to subtract, positive or negative
      * @return the resulting month, not null
      */
     public Month minus(long months) {
@@ -410,6 +324,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Gets the length of this month in days.
      * <p>
@@ -419,7 +334,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * April, June, September and November have 30 days.
      * All other months have 31 days.
      *
-     * @param leapYear  true if the length is required for a leap year
+     * @param leapYear true if the length is required for a leap year
      * @return the length of this month in days, from 28 to 31
      */
     public int length(boolean leapYear) {
@@ -483,13 +398,14 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Gets the day-of-year corresponding to the first day of this month.
      * <p>
      * This returns the day-of-year that this month begins on, using the leap
      * year flag to determine the length of February.
      *
-     * @param leapYear  true if the length is required for a leap year
+     * @param leapYear true if the length is required for a leap year
      * @return the day of year corresponding to the first day of this month, from 1 to 336
      */
     public int firstDayOfYear(boolean leapYear) {
@@ -540,6 +456,7 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Queries this month-of-year using the specified query.
      * <p>
@@ -552,10 +469,10 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * {@link TemporalQuery#queryFrom(TemporalAccessor)} method on the
      * specified query passing {@code this} as the argument.
      *
-     * @param <R> the type of the result
-     * @param query  the query to invoke, not null
+     * @param <R>   the type of the result
+     * @param query the query to invoke, not null
      * @return the query result, null may be returned (defined by the query)
-     * @throws DateTimeException if unable to query (defined by the query)
+     * @throws DateTimeException   if unable to query (defined by the query)
      * @throws ArithmeticException if numeric overflow occurs (defined by the query)
      */
     @SuppressWarnings("unchecked")
@@ -599,9 +516,9 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param temporal  the target object to be adjusted, not null
+     * @param temporal the target object to be adjusted, not null
      * @return the adjusted object, not null
-     * @throws DateTimeException if unable to make the adjustment
+     * @throws DateTimeException   if unable to make the adjustment
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override

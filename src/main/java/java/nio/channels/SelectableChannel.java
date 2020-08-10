@@ -1,28 +1,3 @@
-/*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
 package java.nio.channels;
 
 import java.io.IOException;
@@ -31,97 +6,35 @@ import java.nio.channels.spi.SelectorProvider;
 
 
 /**
- * A channel that can be multiplexed via a {@link Selector}.
- *
- * <p> In order to be used with a selector, an instance of this class must
- * first be <i>registered</i> via the {@link #register(Selector,int,Object)
- * register} method.  This method returns a new {@link SelectionKey} object
- * that represents the channel's registration with the selector.
- *
- * <p> Once registered with a selector, a channel remains registered until it
- * is <i>deregistered</i>.  This involves deallocating whatever resources were
- * allocated to the channel by the selector.
- *
- * <p> A channel cannot be deregistered directly; instead, the key representing
- * its registration must be <i>cancelled</i>.  Cancelling a key requests that
- * the channel be deregistered during the selector's next selection operation.
- * A key may be cancelled explicitly by invoking its {@link
- * SelectionKey#cancel() cancel} method.  All of a channel's keys are cancelled
- * implicitly when the channel is closed, whether by invoking its {@link
- * Channel#close close} method or by interrupting a thread blocked in an I/O
- * operation upon the channel.
- *
- * <p> If the selector itself is closed then the channel will be deregistered,
- * and the key representing its registration will be invalidated, without
- * further delay.
- *
- * <p> A channel may be registered at most once with any particular selector.
- *
- * <p> Whether or not a channel is registered with one or more selectors may be
- * determined by invoking the {@link #isRegistered isRegistered} method.
- *
- * <p> Selectable channels are safe for use by multiple concurrent
- * threads. </p>
- *
- *
- * <a name="bm"></a>
- * <h2>Blocking mode</h2>
- *
- * A selectable channel is either in <i>blocking</i> mode or in
- * <i>non-blocking</i> mode.  In blocking mode, every I/O operation invoked
- * upon the channel will block until it completes.  In non-blocking mode an I/O
- * operation will never block and may transfer fewer bytes than were requested
- * or possibly no bytes at all.  The blocking mode of a selectable channel may
- * be determined by invoking its {@link #isBlocking isBlocking} method.
- *
- * <p> Newly-created selectable channels are always in blocking mode.
- * Non-blocking mode is most useful in conjunction with selector-based
- * multiplexing.  A channel must be placed into non-blocking mode before being
- * registered with a selector, and may not be returned to blocking mode until
- * it has been deregistered.
- *
- *
- * @author Mark Reinhold
- * @author JSR-51 Expert Group
- * @since 1.4
- *
- * @see SelectionKey
- * @see Selector
+ * SelectableChannel 可以并发在多线程使用.
+ * SelectableChannel 只能注册一次 Selector,并且将 SelectableChannel 设置为非阻塞 io 模式效率会更好,当 io 没有数据的时候不会阻塞等待,而是返回没有读取到数据
+ * SelectionKey.cancel() 取消 SelectableChannel 在 Selector 上注册及 Selector 分配的资源,在下一次调用 Selector.select 生效
+ * SelectableChannel.close 会取消掉当前 Channel 注册的所有 Selector及释放资源
+ * Selector.close 会及时失望资源而不会延迟
  */
+public abstract class SelectableChannel extends AbstractInterruptibleChannel implements Channel {
 
-public abstract class SelectableChannel
-    extends AbstractInterruptibleChannel
-    implements Channel
-{
+    protected SelectableChannel() {
+    }
 
-    /**
-     * Initializes a new instance of this class.
-     */
-    protected SelectableChannel() { }
 
     /**
-     * Returns the provider that created this channel.
-     *
-     * @return  The provider that created this channel
+     * 返回创建这个类对象 SelectorProvider;
+     * SelectorProvider 是通过设置 jvm 的属性,没有设置的话走 spi 加载获取的 SelectorProvider
      */
+
     public abstract SelectorProvider provider();
 
+
     /**
-     * Returns an <a href="SelectionKey.html#opsets">operation set</a>
-     * identifying this channel's supported operations.  The bits that are set
-     * in this integer value denote exactly the operations that are valid for
-     * this channel.  This method always returns the same value for a given
-     * concrete channel class.
-     *
-     * @return  The valid-operation set
+     * 获取通道支持的操作
+     * 读(1),写(4),监听客户端链接(16),客户端链接服务端(8)
+     * SocketChannel 为:4,1,8
+     * ServerSocketChannel 为 16
      */
     public abstract int validOps();
 
-    // Internal state:
-    //   keySet, may be empty but is never null, typ. a tiny array
-    //   boolean isRegistered, protected by key set
-    //   regLock, lock object to prevent duplicate registrations
-    //   boolean isBlocking, protected by regLock
+
 
     /**
      * Tells whether or not this channel is currently registered with any
@@ -134,210 +47,74 @@ public abstract class SelectableChannel
      *
      * @return <tt>true</tt> if, and only if, this channel is registered
      */
+    /**
+     * 当前 Channel 是否已经注册 Selector,刚创建的 channel 是没有注册 selector
+     * <p>
+     * synchronized(keyLock) { return isRegistered; }
+     */
     public abstract boolean isRegistered();
-    //
-    // sync(keySet) { return isRegistered; }
+
 
     /**
-     * Retrieves the key representing the channel's registration with the given
-     * selector.
-     *
-     * @param   sel
-     *          The selector
-     *
-     * @return  The key returned when this channel was last registered with the
-     *          given selector, or <tt>null</tt> if this channel is not
-     *          currently registered with that selector
+     * synchronized(keyLock){
+     * for (SelectionKey key : keys) {
+     * if ((key != null) && (key.selector() == sel)) {
+     * return key;
+     * }
+     * }
+     * }
      */
+    /**
+     * 方法调用的时候 synchronized(keyLock)
+     * 遍历 SelectionKey[] keys 拿到 Selector 对应 SelectionKey
+     */
+
     public abstract SelectionKey keyFor(Selector sel);
-    //
-    // sync(keySet) { return findKey(sel); }
+
 
     /**
-     * Registers this channel with the given selector, returning a selection
-     * key.
-     *
-     * <p> If this channel is currently registered with the given selector then
-     * the selection key representing that registration is returned.  The key's
-     * interest set will have been changed to <tt>ops</tt>, as if by invoking
-     * the {@link SelectionKey#interestOps(int) interestOps(int)} method.  If
-     * the <tt>att</tt> argument is not <tt>null</tt> then the key's attachment
-     * will have been set to that value.  A {@link CancelledKeyException} will
-     * be thrown if the key has already been cancelled.
-     *
-     * <p> Otherwise this channel has not yet been registered with the given
-     * selector, so it is registered and the resulting new key is returned.
-     * The key's initial interest set will be <tt>ops</tt> and its attachment
-     * will be <tt>att</tt>.
-     *
-     * <p> This method may be invoked at any time.  If this method is invoked
-     * while another invocation of this method or of the {@link
-     * #configureBlocking(boolean) configureBlocking} method is in progress
-     * then it will first block until the other operation is complete.  This
-     * method will then synchronize on the selector's key set and therefore may
-     * block if invoked concurrently with another registration or selection
-     * operation involving the same selector. </p>
-     *
-     * <p> If this channel is closed while this operation is in progress then
-     * the key returned by this method will have been cancelled and will
-     * therefore be invalid. </p>
-     *
-     * @param  sel
-     *         The selector with which this channel is to be registered
-     *
-     * @param  ops
-     *         The interest set for the resulting key
-     *
-     * @param  att
-     *         The attachment for the resulting key; may be <tt>null</tt>
-     *
-     * @throws  ClosedChannelException
-     *          If this channel is closed
-     *
-     * @throws  ClosedSelectorException
-     *          If the selector is closed
-     *
-     * @throws  IllegalBlockingModeException
-     *          If this channel is in blocking mode
-     *
-     * @throws  IllegalSelectorException
-     *          If this channel was not created by the same provider
-     *          as the given selector
-     *
-     * @throws  CancelledKeyException
-     *          If this channel is currently registered with the given selector
-     *          but the corresponding key has already been cancelled
-     *
-     * @throws  IllegalArgumentException
-     *          If a bit in the <tt>ops</tt> set does not correspond to an
-     *          operation that is supported by this channel, that is, if
-     *          {@code set & ~validOps() != 0}
-     *
-     * @return  A key representing the registration of this channel with
-     *          the given selector
+     * 在 channel 注册 Selector,并将 SelectionKey 添加到 keyset 中
+     * synchronized (regLock){
+     * if (SelectionKey k = findKey(sel);) {
+     * k.interestOps(ops);
+     * k.attach(att);
+     * return k;
+     * }
+     * synchronized (keyLock) {
+     * create key;
+     * add key;
+     * }
+     * }
+     * return key;
      */
-    public abstract SelectionKey register(Selector sel, int ops, Object att)
-        throws ClosedChannelException;
-    //
-    // sync(regLock) {
-    //   sync(keySet) { look for selector }
-    //   if (channel found) { set interest ops -- may block in selector;
-    //                        return key; }
-    //   create new key -- may block somewhere in selector;
-    //   sync(keySet) { add key; }
-    //   attach(attachment);
-    //   return key;
-    // }
 
-    /**
-     * Registers this channel with the given selector, returning a selection
-     * key.
-     *
-     * <p> An invocation of this convenience method of the form
-     *
-     * <blockquote><tt>sc.register(sel, ops)</tt></blockquote>
-     *
-     * behaves in exactly the same way as the invocation
-     *
-     * <blockquote><tt>sc.{@link
-     * #register(Selector,int, Object)
-     * register}(sel, ops, null)</tt></blockquote>
-     *
-     * @param  sel
-     *         The selector with which this channel is to be registered
-     *
-     * @param  ops
-     *         The interest set for the resulting key
-     *
-     * @throws  ClosedChannelException
-     *          If this channel is closed
-     *
-     * @throws  ClosedSelectorException
-     *          If the selector is closed
-     *
-     * @throws  IllegalBlockingModeException
-     *          If this channel is in blocking mode
-     *
-     * @throws  IllegalSelectorException
-     *          If this channel was not created by the same provider
-     *          as the given selector
-     *
-     * @throws  CancelledKeyException
-     *          If this channel is currently registered with the given selector
-     *          but the corresponding key has already been cancelled
-     *
-     * @throws  IllegalArgumentException
-     *          If a bit in <tt>ops</tt> does not correspond to an operation
-     *          that is supported by this channel, that is, if {@code set &
-     *          ~validOps() != 0}
-     *
-     * @return  A key representing the registration of this channel with
-     *          the given selector
-     */
-    public final SelectionKey register(Selector sel, int ops)
-        throws ClosedChannelException
-    {
+    public abstract SelectionKey register(Selector sel, int ops, Object att) throws ClosedChannelException;
+
+
+    public final SelectionKey register(Selector sel, int ops) throws ClosedChannelException {
         return register(sel, ops, null);
     }
 
-    /**
-     * Adjusts this channel's blocking mode.
-     *
-     * <p> If this channel is registered with one or more selectors then an
-     * attempt to place it into blocking mode will cause an {@link
-     * IllegalBlockingModeException} to be thrown.
-     *
-     * <p> This method may be invoked at any time.  The new blocking mode will
-     * only affect I/O operations that are initiated after this method returns.
-     * For some implementations this may require blocking until all pending I/O
-     * operations are complete.
-     *
-     * <p> If this method is invoked while another invocation of this method or
-     * of the {@link #register(Selector, int) register} method is in progress
-     * then it will first block until the other operation is complete. </p>
-     *
-     * @param  block  If <tt>true</tt> then this channel will be placed in
-     *                blocking mode; if <tt>false</tt> then it will be placed
-     *                non-blocking mode
-     *
-     * @return  This selectable channel
-     *
-     * @throws  ClosedChannelException
-     *          If this channel is closed
-     *
-     * @throws  IllegalBlockingModeException
-     *          If <tt>block</tt> is <tt>true</tt> and this channel is
-     *          registered with one or more selectors
-     *
-     * @throws IOException
-     *         If an I/O error occurs
-     */
-    public abstract SelectableChannel configureBlocking(boolean block)
-        throws IOException;
-    //
-    // sync(regLock) {
-    //   sync(keySet) { throw IBME if block && isRegistered; }
-    //   change mode;
-    // }
 
     /**
-     * Tells whether or not every I/O operation on this channel will block
-     * until it completes.  A newly-created channel is always in blocking mode.
-     *
-     * <p> If this channel is closed then the value returned by this method is
-     * not specified. </p>
-     *
-     * @return <tt>true</tt> if, and only if, this channel is in blocking mode
+     * 修改 channel 为非阻塞模式
+     * synchronized (regLock) { 修改}
      */
+    public abstract SelectableChannel configureBlocking(boolean block) throws IOException;
+
+
+    /**
+     * synchronized (regLock) {
+     * return blocking;
+     * }
+     * 判断是否是阻塞模式, true 为阻塞模式
+     */
+
     public abstract boolean isBlocking();
 
     /**
-     * Retrieves the object upon which the {@link #configureBlocking
-     * configureBlocking} and {@link #register register} methods synchronize.
-     * This is often useful in the implementation of adaptors that require a
-     * specific blocking mode to be maintained for a short period of time.
-     *
-     * @return  The blocking-mode lock object
+     * 返回锁
+     * return regLock;
      */
     public abstract Object blockingLock();
 

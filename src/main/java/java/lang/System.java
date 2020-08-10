@@ -1,11 +1,15 @@
 package java.lang;
 
+import sun.nio.ch.Interruptible;
 import sun.reflect.CallerSensitive;
 import sun.reflect.Reflection;
+import sun.reflect.annotation.AnnotationType;
 
-import java.io.Console;
-import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.*;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Executable;
+import java.security.AccessControlContext;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -18,6 +22,9 @@ import java.util.Properties;
  * @since JDK1.0
  */
 public final class System {
+    private static Properties props;
+
+    private static native Properties initProperties(Properties props);
 
     /**
      * 标准输入流,标注输出流,错误输出流,对应 linux 中的文件描述符,0,1,2
@@ -70,7 +77,6 @@ public final class System {
      * <dt>user.dir             <dd>User's current working directory
      * </dl>
      */
-    private static Properties props;
 
     public static String getProperty(String key) {
         return props.getProperty(key);
@@ -120,5 +126,137 @@ public final class System {
     @CallerSensitive
     public static void loadLibrary(String libname) {
         Runtime.getRuntime().loadLibrary0(Reflection.getCallerClass(), libname);
+    }
+
+    /**
+     * Initialize the system class.  Called after thread initialization.
+     */
+    private static void initializeSystemClass() {
+
+        props = new Properties();
+        /**
+         * 由 JVM 调用初始化 user.home, user.name, boot.class.path, etc.
+         */
+        initProperties(props);  // initialized by the VM
+
+
+        sun.misc.VM.saveAndRemoveProperties(props);
+
+
+        lineSeparator = props.getProperty("line.separator");
+        sun.misc.Version.init();
+
+        FileInputStream fdIn = new FileInputStream(FileDescriptor.in);
+        FileOutputStream fdOut = new FileOutputStream(FileDescriptor.out);
+        FileOutputStream fdErr = new FileOutputStream(FileDescriptor.err);
+
+
+        // Load the zip library now in order to keep java.util.zip.ZipFile
+        // from trying to use itself to load this library later.
+        loadLibrary("zip");
+
+        // Setup Java signal handlers for HUP, TERM, and INT (where available).
+        Terminator.setup();
+
+        // Initialize any miscellenous operating system settings that need to be
+        // set for the class libraries. Currently this is no-op everywhere except
+        // for Windows where the process-wide error mode is set before the java.io
+        // classes are used.
+        sun.misc.VM.initializeOSEnvironment();
+
+        // The main thread is not added to its thread group in the same
+        // way as other threads; we must do it ourselves here.
+        Thread current = Thread.currentThread();
+        current.getThreadGroup().add(current);
+
+        // register shared secrets
+        setJavaLangAccess();
+
+        // Subsystems that are invoked during initialization can invoke
+        // sun.misc.VM.isBooted() in order to avoid doing things that should
+        // wait until the application class loader has been set up.
+        // IMPORTANT: Ensure that this remains the last initialization action!
+        sun.misc.VM.booted();
+    }
+
+    private static void setJavaLangAccess() {
+        // Allow privileged classes outside of java.lang
+        sun.misc.SharedSecrets.setJavaLangAccess(new sun.misc.JavaLangAccess() {
+            @Override
+            public sun.reflect.ConstantPool getConstantPool(Class<?> klass) {
+                return klass.getConstantPool();
+            }
+
+            @Override
+            public boolean casAnnotationType(Class<?> klass, AnnotationType oldType, AnnotationType newType) {
+                return klass.casAnnotationType(oldType, newType);
+            }
+
+            @Override
+            public AnnotationType getAnnotationType(Class<?> klass) {
+                return klass.getAnnotationType();
+            }
+
+            @Override
+            public Map<Class<? extends Annotation>, Annotation> getDeclaredAnnotationMap(Class<?> klass) {
+                return klass.getDeclaredAnnotationMap();
+            }
+
+            @Override
+            public byte[] getRawClassAnnotations(Class<?> klass) {
+                return klass.getRawAnnotations();
+            }
+
+            @Override
+            public byte[] getRawClassTypeAnnotations(Class<?> klass) {
+                return klass.getRawTypeAnnotations();
+            }
+
+            @Override
+            public byte[] getRawExecutableTypeAnnotations(Executable executable) {
+                return Class.getExecutableTypeAnnotationBytes(executable);
+            }
+
+            @Override
+            public <E extends Enum<E>>
+            E[] getEnumConstantsShared(Class<E> klass) {
+                return klass.getEnumConstantsShared();
+            }
+
+            @Override
+            public void blockedOn(Thread t, Interruptible b) {
+                t.blockedOn(b);
+            }
+
+            @Override
+            public void registerShutdownHook(int slot, boolean registerShutdownInProgress, Runnable hook) {
+                Shutdown.add(slot, registerShutdownInProgress, hook);
+            }
+
+            @Override
+            public int getStackTraceDepth(Throwable t) {
+                return t.getStackTraceDepth();
+            }
+
+            @Override
+            public StackTraceElement getStackTraceElement(Throwable t, int i) {
+                return t.getStackTraceElement(i);
+            }
+
+            @Override
+            public String newStringUnsafe(char[] chars) {
+                return new String(chars, true);
+            }
+
+            @Override
+            public Thread newThreadWithAcc(Runnable target, AccessControlContext acc) {
+                return new Thread(target, acc);
+            }
+
+            @Override
+            public void invokeFinalize(Object o) throws Throwable {
+                o.finalize();
+            }
+        });
     }
 }

@@ -1,39 +1,8 @@
-/*
- * Copyright (c) 2007, 2009, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
 package java.nio.file;
-
-/**
- * Defines the standard copy options.
- *
- * @since 1.7
- */
 
 public enum StandardCopyOption implements CopyOption {
     /**
-     * Replace an existing file if it exists.
+     * 存在时,替换
      */
     REPLACE_EXISTING,
     /**

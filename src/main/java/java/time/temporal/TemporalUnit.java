@@ -64,35 +64,12 @@ package java.time.temporal;
 import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.LocalTime;
-import java.time.Period;
 import java.time.chrono.ChronoLocalDate;
 import java.time.chrono.ChronoLocalDateTime;
 import java.time.chrono.ChronoZonedDateTime;
 
 /**
- * A unit of date-time, such as Days or Hours.
- * <p>
- * Measurement of time is built on units, such as years, months, days, hours, minutes and seconds.
- * Implementations of this interface represent those units.
- * <p>
- * An instance of this interface represents the unit itself, rather than an amount of the unit.
- * See {@link Period} for a class that represents an amount in terms of the common units.
- * <p>
- * The most commonly used units are defined in {@link ChronoUnit}.
- * Further units are supplied in {@link IsoFields}.
- * Units can also be written by application code by implementing this interface.
- * <p>
- * The unit works using double dispatch. Client code calls methods on a date-time like
- * {@code LocalDateTime} which check if the unit is a {@code ChronoUnit}.
- * If it is, then the date-time must handle it.
- * Otherwise, the method call is re-dispatched to the matching method in this interface.
- *
- * @implSpec
- * This interface must be implemented with care to ensure other classes operate correctly.
- * All implementations that can be instantiated must be final, immutable and thread-safe.
- * It is recommended to use an enum where possible.
- *
- * @since 1.8
+ * 日期的单位
  */
 public interface TemporalUnit {
 
@@ -126,6 +103,7 @@ public interface TemporalUnit {
     boolean isDurationEstimated();
 
     //-----------------------------------------------------------------------
+
     /**
      * Checks if this unit represents a component of a date.
      * <p>
@@ -153,6 +131,7 @@ public interface TemporalUnit {
     boolean isTimeBased();
 
     //-----------------------------------------------------------------------
+
     /**
      * Checks if this unit is supported by the specified temporal object.
      * <p>
@@ -162,7 +141,7 @@ public interface TemporalUnit {
      * This default implementation derives the value using
      * {@link Temporal#plus(long, TemporalUnit)}.
      *
-     * @param temporal  the temporal object to check, not null
+     * @param temporal the temporal object to check, not null
      * @return true if the unit is supported
      */
     default boolean isSupportedBy(Temporal temporal) {
@@ -217,16 +196,17 @@ public interface TemporalUnit {
      * Instead, an adjusted copy of the original must be returned.
      * This provides equivalent, safe behavior for immutable and mutable implementations.
      *
-     * @param <R>  the type of the Temporal object
-     * @param temporal  the temporal object to adjust, not null
-     * @param amount  the amount of this unit to add, positive or negative
+     * @param <R>      the type of the Temporal object
+     * @param temporal the temporal object to adjust, not null
+     * @param amount   the amount of this unit to add, positive or negative
      * @return the adjusted temporal object, not null
-     * @throws DateTimeException if the amount cannot be added
+     * @throws DateTimeException                if the amount cannot be added
      * @throws UnsupportedTemporalTypeException if the unit is not supported by the temporal
      */
     <R extends Temporal> R addTo(R temporal, long amount);
 
     //-----------------------------------------------------------------------
+
     /**
      * Calculates the amount of time between two temporal objects.
      * <p>
@@ -266,24 +246,23 @@ public interface TemporalUnit {
      * If the unit is not supported an {@code UnsupportedTemporalTypeException} must be thrown.
      * Implementations must not alter the specified temporal objects.
      *
-     * @implSpec
-     * Implementations must begin by checking to if the two temporals have the
+     * @param temporal1Inclusive the base temporal object, not null
+     * @param temporal2Exclusive the other temporal object, exclusive, not null
+     * @return the amount of time between temporal1Inclusive and temporal2Exclusive
+     * in terms of this unit; positive if temporal2Exclusive is later than
+     * temporal1Inclusive, negative if earlier
+     * @throws DateTimeException                if the amount cannot be calculated, or the end
+     *                                          temporal cannot be converted to the same type as the start temporal
+     * @throws UnsupportedTemporalTypeException if the unit is not supported by the temporal
+     * @throws ArithmeticException              if numeric overflow occurs
+     * @implSpec Implementations must begin by checking to if the two temporals have the
      * same type using {@code getClass()}. If they do not, then the result must be
      * obtained by calling {@code temporal1Inclusive.until(temporal2Exclusive, this)}.
-     *
-     * @param temporal1Inclusive  the base temporal object, not null
-     * @param temporal2Exclusive  the other temporal object, exclusive, not null
-     * @return the amount of time between temporal1Inclusive and temporal2Exclusive
-     *  in terms of this unit; positive if temporal2Exclusive is later than
-     *  temporal1Inclusive, negative if earlier
-     * @throws DateTimeException if the amount cannot be calculated, or the end
-     *  temporal cannot be converted to the same type as the start temporal
-     * @throws UnsupportedTemporalTypeException if the unit is not supported by the temporal
-     * @throws ArithmeticException if numeric overflow occurs
      */
     long between(Temporal temporal1Inclusive, Temporal temporal2Exclusive);
 
     //-----------------------------------------------------------------------
+
     /**
      * Gets a descriptive name for the unit.
      * <p>

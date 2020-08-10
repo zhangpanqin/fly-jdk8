@@ -1,74 +1,7 @@
-/*
- * Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
-/*
- * Copyright (c) 2012, Stephen Colebourne & Michael Nascimento Santos
- *
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- *  * Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- *  * Neither the name of JSR-310 nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package java.time.temporal;
 
-import static java.time.temporal.ChronoUnit.DAYS;
-import static java.time.temporal.ChronoUnit.ERAS;
-import static java.time.temporal.ChronoUnit.FOREVER;
-import static java.time.temporal.ChronoUnit.HALF_DAYS;
-import static java.time.temporal.ChronoUnit.HOURS;
-import static java.time.temporal.ChronoUnit.MICROS;
-import static java.time.temporal.ChronoUnit.MILLIS;
-import static java.time.temporal.ChronoUnit.MINUTES;
-import static java.time.temporal.ChronoUnit.MONTHS;
-import static java.time.temporal.ChronoUnit.NANOS;
-import static java.time.temporal.ChronoUnit.SECONDS;
-import static java.time.temporal.ChronoUnit.WEEKS;
-import static java.time.temporal.ChronoUnit.YEARS;
+import sun.util.locale.provider.LocaleProviderAdapter;
+import sun.util.locale.provider.LocaleResources;
 
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -79,24 +12,11 @@ import java.time.chrono.Chronology;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.ResourceBundle;
-import sun.util.locale.provider.LocaleProviderAdapter;
-import sun.util.locale.provider.LocaleResources;
+
+import static java.time.temporal.ChronoUnit.*;
 
 /**
- * A standard set of fields.
- * <p>
- * This set of fields provide field-based access to manipulate a date, time or date-time.
- * The standard set of fields can be extended by implementing {@link TemporalField}.
- * <p>
- * These fields are intended to be applicable in multiple calendar systems.
- * For example, most non-ISO calendar systems define dates as a year, month and day,
- * just with slightly different rules.
- * The documentation of each field explains how it operates.
- *
- * @implSpec
- * This is a final, immutable and thread-safe enum.
- *
- * @since 1.8
+ * 定义操作日期和时间的字段
  */
 public enum ChronoField implements TemporalField {
 
@@ -605,7 +525,7 @@ public enum ChronoField implements TemporalField {
     }
 
     private ChronoField(String name, TemporalUnit baseUnit, TemporalUnit rangeUnit,
-            ValueRange range, String displayNameKey) {
+                        ValueRange range, String displayNameKey) {
         this.name = name;
         this.baseUnit = baseUnit;
         this.rangeUnit = rangeUnit;
@@ -621,7 +541,7 @@ public enum ChronoField implements TemporalField {
         }
 
         LocaleResources lr = LocaleProviderAdapter.getResourceBundleBased()
-                                    .getLocaleResources(locale);
+                .getLocaleResources(locale);
         ResourceBundle rb = lr.getJavaTimeFormatData();
         String key = "field." + displayNameKey;
         return rb.containsKey(key) ? rb.getString(key) : name;
@@ -660,6 +580,7 @@ public enum ChronoField implements TemporalField {
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Checks if this field represents a component of a date.
      * <p>
@@ -685,6 +606,7 @@ public enum ChronoField implements TemporalField {
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Checks that the specified value is valid for this field.
      * <p>
@@ -696,7 +618,7 @@ public enum ChronoField implements TemporalField {
      * Use {@link Chronology#range(ChronoField)} to access the correct range
      * for a different calendar system.
      *
-     * @param value  the value to check
+     * @param value the value to check
      * @return the value that was passed in
      */
     public long checkValidValue(long value) {
@@ -715,7 +637,7 @@ public enum ChronoField implements TemporalField {
      * Use {@link Chronology#range(ChronoField)} to access the correct range
      * for a different calendar system.
      *
-     * @param value  the value to check
+     * @param value the value to check
      * @return the value that was passed in
      */
     public int checkValidIntValue(long value) {

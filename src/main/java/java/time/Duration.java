@@ -1,91 +1,11 @@
-/*
- * Copyright (c) 2012, 2015, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
-/*
- *
- *
- *
- *
- *
- * Copyright (c) 2007-2012, Stephen Colebourne & Michael Nascimento Santos
- *
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- *  * Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- *  * Neither the name of JSR-310 nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package java.time;
 
-import static java.time.LocalTime.NANOS_PER_SECOND;
-import static java.time.LocalTime.SECONDS_PER_DAY;
-import static java.time.LocalTime.SECONDS_PER_HOUR;
-import static java.time.LocalTime.SECONDS_PER_MINUTE;
-import static java.time.temporal.ChronoField.NANO_OF_SECOND;
-import static java.time.temporal.ChronoUnit.DAYS;
-import static java.time.temporal.ChronoUnit.NANOS;
-import static java.time.temporal.ChronoUnit.SECONDS;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.io.InvalidObjectException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
+import java.io.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoField;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.Temporal;
-import java.time.temporal.TemporalAmount;
-import java.time.temporal.TemporalUnit;
-import java.time.temporal.UnsupportedTemporalTypeException;
+import java.time.temporal.*;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -93,45 +13,15 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.time.LocalTime.*;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static java.time.temporal.ChronoUnit.*;
+
 /**
- * A time-based amount of time, such as '34.5 seconds'.
- * <p>
- * This class models a quantity or amount of time in terms of seconds and nanoseconds.
- * It can be accessed using other duration-based units, such as minutes and hours.
- * In addition, the {@link ChronoUnit#DAYS DAYS} unit can be used and is treated as
- * exactly equal to 24 hours, thus ignoring daylight savings effects.
- * See {@link Period} for the date-based equivalent to this class.
- * <p>
- * A physical duration could be of infinite length.
- * For practicality, the duration is stored with constraints similar to {@link Instant}.
- * The duration uses nanosecond resolution with a maximum value of the seconds that can
- * be held in a {@code long}. This is greater than the current estimated age of the universe.
- * <p>
- * The range of a duration requires the storage of a number larger than a {@code long}.
- * To achieve this, the class stores a {@code long} representing seconds and an {@code int}
- * representing nanosecond-of-second, which will always be between 0 and 999,999,999.
- * The model is of a directed duration, meaning that the duration may be negative.
- * <p>
- * The duration is measured in "seconds", but these are not necessarily identical to
- * the scientific "SI second" definition based on atomic clocks.
- * This difference only impacts durations measured near a leap-second and should not affect
- * most applications.
- * See {@link Instant} for a discussion as to the meaning of the second and time-scales.
- *
- * <p>
- * This is a <a href="{@docRoot}/java/lang/doc-files/ValueBased.html">value-based</a>
- * class; use of identity-sensitive operations (including reference equality
- * ({@code ==}), identity hash code, or synchronization) on instances of
- * {@code Duration} may have unpredictable results and should be avoided.
- * The {@code equals} method should be used for comparisons.
- *
- * @implSpec
- * This class is immutable and thread-safe.
- *
- * @since 1.8
+ * 一个周期,
+ * 秒和纳秒
  */
-public final class Duration
-        implements TemporalAmount, Comparable<Duration>, Serializable {
+public final class Duration implements TemporalAmount, Comparable<Duration>, Serializable {
 
     /**
      * Constant for a duration of zero.
@@ -150,112 +40,44 @@ public final class Duration
      */
     private static final Pattern PATTERN =
             Pattern.compile("([-+]?)P(?:([-+]?[0-9]+)D)?" +
-                    "(T(?:([-+]?[0-9]+)H)?(?:([-+]?[0-9]+)M)?(?:([-+]?[0-9]+)(?:[.,]([0-9]{0,9}))?S)?)?",
+                            "(T(?:([-+]?[0-9]+)H)?(?:([-+]?[0-9]+)M)?(?:([-+]?[0-9]+)(?:[.,]([0-9]{0,9}))?S)?)?",
                     Pattern.CASE_INSENSITIVE);
 
     /**
-     * The number of seconds in the duration.
+     * 秒
      */
     private final long seconds;
+
     /**
-     * The number of nanoseconds in the duration, expressed as a fraction of the
-     * number of seconds. This is always positive, and never exceeds 999,999,999.
+     * 一秒内的调整时间
      */
     private final int nanos;
 
-    //-----------------------------------------------------------------------
     /**
-     * Obtains a {@code Duration} representing a number of standard 24 hour days.
-     * <p>
-     * The seconds are calculated based on the standard definition of a day,
-     * where each day is 86400 seconds which implies a 24 hour day.
-     * The nanosecond in second field is set to zero.
-     *
-     * @param days  the number of days, positive or negative
-     * @return a {@code Duration}, not null
-     * @throws ArithmeticException if the input days exceeds the capacity of {@code Duration}
+     * 计算 seconds 及一秒内的调整
      */
     public static Duration ofDays(long days) {
         return create(Math.multiplyExact(days, SECONDS_PER_DAY), 0);
     }
 
-    /**
-     * Obtains a {@code Duration} representing a number of standard hours.
-     * <p>
-     * The seconds are calculated based on the standard definition of an hour,
-     * where each hour is 3600 seconds.
-     * The nanosecond in second field is set to zero.
-     *
-     * @param hours  the number of hours, positive or negative
-     * @return a {@code Duration}, not null
-     * @throws ArithmeticException if the input hours exceeds the capacity of {@code Duration}
-     */
     public static Duration ofHours(long hours) {
         return create(Math.multiplyExact(hours, SECONDS_PER_HOUR), 0);
     }
 
-    /**
-     * Obtains a {@code Duration} representing a number of standard minutes.
-     * <p>
-     * The seconds are calculated based on the standard definition of a minute,
-     * where each minute is 60 seconds.
-     * The nanosecond in second field is set to zero.
-     *
-     * @param minutes  the number of minutes, positive or negative
-     * @return a {@code Duration}, not null
-     * @throws ArithmeticException if the input minutes exceeds the capacity of {@code Duration}
-     */
     public static Duration ofMinutes(long minutes) {
         return create(Math.multiplyExact(minutes, SECONDS_PER_MINUTE), 0);
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Obtains a {@code Duration} representing a number of seconds.
-     * <p>
-     * The nanosecond in second field is set to zero.
-     *
-     * @param seconds  the number of seconds, positive or negative
-     * @return a {@code Duration}, not null
-     */
     public static Duration ofSeconds(long seconds) {
         return create(seconds, 0);
     }
 
-    /**
-     * Obtains a {@code Duration} representing a number of seconds and an
-     * adjustment in nanoseconds.
-     * <p>
-     * This method allows an arbitrary number of nanoseconds to be passed in.
-     * The factory will alter the values of the second and nanosecond in order
-     * to ensure that the stored nanosecond is in the range 0 to 999,999,999.
-     * For example, the following will result in the exactly the same duration:
-     * <pre>
-     *  Duration.ofSeconds(3, 1);
-     *  Duration.ofSeconds(4, -999_999_999);
-     *  Duration.ofSeconds(2, 1000_000_001);
-     * </pre>
-     *
-     * @param seconds  the number of seconds, positive or negative
-     * @param nanoAdjustment  the nanosecond adjustment to the number of seconds, positive or negative
-     * @return a {@code Duration}, not null
-     * @throws ArithmeticException if the adjustment causes the seconds to exceed the capacity of {@code Duration}
-     */
     public static Duration ofSeconds(long seconds, long nanoAdjustment) {
         long secs = Math.addExact(seconds, Math.floorDiv(nanoAdjustment, NANOS_PER_SECOND));
         int nos = (int) Math.floorMod(nanoAdjustment, NANOS_PER_SECOND);
         return create(secs, nos);
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Obtains a {@code Duration} representing a number of milliseconds.
-     * <p>
-     * The seconds and nanoseconds are extracted from the specified milliseconds.
-     *
-     * @param millis  the number of milliseconds, positive or negative
-     * @return a {@code Duration}, not null
-     */
     public static Duration ofMillis(long millis) {
         long secs = millis / 1000;
         int mos = (int) (millis % 1000);
@@ -266,15 +88,6 @@ public final class Duration
         return create(secs, mos * 1000_000);
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Obtains a {@code Duration} representing a number of nanoseconds.
-     * <p>
-     * The seconds and nanoseconds are extracted from the specified nanoseconds.
-     *
-     * @param nanos  the number of nanoseconds, positive or negative
-     * @return a {@code Duration}, not null
-     */
     public static Duration ofNanos(long nanos) {
         long secs = nanos / NANOS_PER_SECOND;
         int nos = (int) (nanos % NANOS_PER_SECOND);
@@ -285,50 +98,10 @@ public final class Duration
         return create(secs, nos);
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Obtains a {@code Duration} representing an amount in the specified unit.
-     * <p>
-     * The parameters represent the two parts of a phrase like '6 Hours'. For example:
-     * <pre>
-     *  Duration.of(3, SECONDS);
-     *  Duration.of(465, HOURS);
-     * </pre>
-     * Only a subset of units are accepted by this method.
-     * The unit must either have an {@linkplain TemporalUnit#isDurationEstimated() exact duration} or
-     * be {@link ChronoUnit#DAYS} which is treated as 24 hours. Other units throw an exception.
-     *
-     * @param amount  the amount of the duration, measured in terms of the unit, positive or negative
-     * @param unit  the unit that the duration is measured in, must have an exact duration, not null
-     * @return a {@code Duration}, not null
-     * @throws DateTimeException if the period unit has an estimated duration
-     * @throws ArithmeticException if a numeric overflow occurs
-     */
     public static Duration of(long amount, TemporalUnit unit) {
         return ZERO.plus(amount, unit);
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Obtains an instance of {@code Duration} from a temporal amount.
-     * <p>
-     * This obtains a duration based on the specified amount.
-     * A {@code TemporalAmount} represents an  amount of time, which may be
-     * date-based or time-based, which this factory extracts to a duration.
-     * <p>
-     * The conversion loops around the set of units from the amount and uses
-     * the {@linkplain TemporalUnit#getDuration() duration} of the unit to
-     * calculate the total {@code Duration}.
-     * Only a subset of units are accepted by this method. The unit must either
-     * have an {@linkplain TemporalUnit#isDurationEstimated() exact duration}
-     * or be {@link ChronoUnit#DAYS} which is treated as 24 hours.
-     * If any other units are found then an exception is thrown.
-     *
-     * @param amount  the temporal amount to convert, not null
-     * @return the equivalent duration, not null
-     * @throws DateTimeException if unable to convert to a {@code Duration}
-     * @throws ArithmeticException if numeric overflow occurs
-     */
     public static Duration from(TemporalAmount amount) {
         Objects.requireNonNull(amount, "amount");
         Duration duration = ZERO;
@@ -338,51 +111,6 @@ public final class Duration
         return duration;
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Obtains a {@code Duration} from a text string such as {@code PnDTnHnMn.nS}.
-     * <p>
-     * This will parse a textual representation of a duration, including the
-     * string produced by {@code toString()}. The formats accepted are based
-     * on the ISO-8601 duration format {@code PnDTnHnMn.nS} with days
-     * considered to be exactly 24 hours.
-     * <p>
-     * The string starts with an optional sign, denoted by the ASCII negative
-     * or positive symbol. If negative, the whole period is negated.
-     * The ASCII letter "P" is next in upper or lower case.
-     * There are then four sections, each consisting of a number and a suffix.
-     * The sections have suffixes in ASCII of "D", "H", "M" and "S" for
-     * days, hours, minutes and seconds, accepted in upper or lower case.
-     * The suffixes must occur in order. The ASCII letter "T" must occur before
-     * the first occurrence, if any, of an hour, minute or second section.
-     * At least one of the four sections must be present, and if "T" is present
-     * there must be at least one section after the "T".
-     * The number part of each section must consist of one or more ASCII digits.
-     * The number may be prefixed by the ASCII negative or positive symbol.
-     * The number of days, hours and minutes must parse to an {@code long}.
-     * The number of seconds must parse to an {@code long} with optional fraction.
-     * The decimal point may be either a dot or a comma.
-     * The fractional part may have from zero to 9 digits.
-     * <p>
-     * The leading plus/minus sign, and negative values for other units are
-     * not part of the ISO-8601 standard.
-     * <p>
-     * Examples:
-     * <pre>
-     *    "PT20.345S" -- parses as "20.345 seconds"
-     *    "PT15M"     -- parses as "15 minutes" (where a minute is 60 seconds)
-     *    "PT10H"     -- parses as "10 hours" (where an hour is 3600 seconds)
-     *    "P2D"       -- parses as "2 days" (where a day is 24 hours or 86400 seconds)
-     *    "P2DT3H4M"  -- parses as "2 days, 3 hours and 4 minutes"
-     *    "P-6H3M"    -- parses as "-6 hours and +3 minutes"
-     *    "-P6H3M"    -- parses as "-6 hours and -3 minutes"
-     *    "-P-6H+3M"  -- parses as "+6 hours and -3 minutes"
-     * </pre>
-     *
-     * @param text  the text to parse, not null
-     * @return the parsed duration, not null
-     * @throws DateTimeParseException if the text cannot be parsed to a duration
-     */
     public static Duration parse(CharSequence text) {
         Objects.requireNonNull(text, "text");
         Matcher matcher = PATTERN.matcher(text);
@@ -400,7 +128,7 @@ public final class Duration
                     long hoursAsSecs = parseNumber(text, hourMatch, SECONDS_PER_HOUR, "hours");
                     long minsAsSecs = parseNumber(text, minuteMatch, SECONDS_PER_MINUTE, "minutes");
                     long seconds = parseNumber(text, secondMatch, 1, "seconds");
-                    int nanos = parseFraction(text,  fractionMatch, seconds < 0 ? -1 : 1);
+                    int nanos = parseFraction(text, fractionMatch, seconds < 0 ? -1 : 1);
                     try {
                         return create(negate, daysAsSecs, hoursAsSecs, minsAsSecs, seconds, nanos);
                     } catch (ArithmeticException ex) {
@@ -447,27 +175,7 @@ public final class Duration
     }
 
     //-----------------------------------------------------------------------
-    /**
-     * Obtains a {@code Duration} representing the duration between two temporal objects.
-     * <p>
-     * This calculates the duration between two temporal objects. If the objects
-     * are of different types, then the duration is calculated based on the type
-     * of the first object. For example, if the first argument is a {@code LocalTime}
-     * then the second argument is converted to a {@code LocalTime}.
-     * <p>
-     * The specified temporal objects must support the {@link ChronoUnit#SECONDS SECONDS} unit.
-     * For full accuracy, either the {@link ChronoUnit#NANOS NANOS} unit or the
-     * {@link ChronoField#NANO_OF_SECOND NANO_OF_SECOND} field should be supported.
-     * <p>
-     * The result of this method can be a negative period if the end is before the start.
-     * To guarantee to obtain a positive duration call {@link #abs()} on the result.
-     *
-     * @param startInclusive  the start instant, inclusive, not null
-     * @param endExclusive  the end instant, exclusive, not null
-     * @return a {@code Duration}, not null
-     * @throws DateTimeException if the seconds between the temporals cannot be obtained
-     * @throws ArithmeticException if the calculation exceeds the capacity of {@code Duration}
-     */
+
     public static Duration between(Temporal startInclusive, Temporal endExclusive) {
         try {
             return ofNanos(startInclusive.until(endExclusive, NANOS));
@@ -488,13 +196,6 @@ public final class Duration
         }
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Obtains an instance of {@code Duration} using seconds and nanoseconds.
-     *
-     * @param seconds  the length of the duration in seconds, positive or negative
-     * @param nanoAdjustment  the nanosecond adjustment within the second, from 0 to 999,999,999
-     */
     private static Duration create(long seconds, int nanoAdjustment) {
         if ((seconds | nanoAdjustment) == 0) {
             return ZERO;
@@ -505,8 +206,8 @@ public final class Duration
     /**
      * Constructs an instance of {@code Duration} using seconds and nanoseconds.
      *
-     * @param seconds  the length of the duration in seconds, positive or negative
-     * @param nanos  the nanoseconds within the second, from 0 to 999,999,999
+     * @param seconds the length of the duration in seconds, positive or negative
+     * @param nanos   the nanoseconds within the second, from 0 to 999,999,999
      */
     private Duration(long seconds, int nanos) {
         super();
@@ -514,19 +215,6 @@ public final class Duration
         this.nanos = nanos;
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Gets the value of the requested unit.
-     * <p>
-     * This returns a value for each of the two supported units,
-     * {@link ChronoUnit#SECONDS SECONDS} and {@link ChronoUnit#NANOS NANOS}.
-     * All other units throw an exception.
-     *
-     * @param unit the {@code TemporalUnit} for which to return the value
-     * @return the long value of the unit
-     * @throws DateTimeException if the unit is not supported
-     * @throws UnsupportedTemporalTypeException if the unit is not supported
-     */
     @Override
     public long get(TemporalUnit unit) {
         if (unit == SECONDS) {
@@ -566,6 +254,7 @@ public final class Duration
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Checks if this duration is zero length.
      * <p>
@@ -593,6 +282,7 @@ public final class Duration
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Gets the number of seconds in this duration.
      * <p>
@@ -630,6 +320,7 @@ public final class Duration
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns a copy of this duration with the specified amount of seconds.
      * <p>
@@ -638,7 +329,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param seconds  the seconds to represent, may be negative
+     * @param seconds the seconds to represent, may be negative
      * @return a {@code Duration} based on this period with the requested seconds, not null
      */
     public Duration withSeconds(long seconds) {
@@ -653,7 +344,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param nanoOfSecond  the nano-of-second to represent, from 0 to 999,999,999
+     * @param nanoOfSecond the nano-of-second to represent, from 0 to 999,999,999
      * @return a {@code Duration} based on this period with the requested nano-of-second, not null
      * @throws DateTimeException if the nano-of-second is invalid
      */
@@ -663,18 +354,19 @@ public final class Duration
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns a copy of this duration with the specified duration added.
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param duration  the duration to add, positive or negative, not null
+     * @param duration the duration to add, positive or negative, not null
      * @return a {@code Duration} based on this duration with the specified duration added, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
     public Duration plus(Duration duration) {
         return plus(duration.getSeconds(), duration.getNano());
-     }
+    }
 
     /**
      * Returns a copy of this duration with the specified duration added.
@@ -686,11 +378,11 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param amountToAdd  the amount to add, measured in terms of the unit, positive or negative
-     * @param unit  the unit that the amount is measured in, must have an exact duration, not null
+     * @param amountToAdd the amount to add, measured in terms of the unit, positive or negative
+     * @param unit        the unit that the amount is measured in, must have an exact duration, not null
      * @return a {@code Duration} based on this duration with the specified duration added, not null
      * @throws UnsupportedTemporalTypeException if the unit is not supported
-     * @throws ArithmeticException if numeric overflow occurs
+     * @throws ArithmeticException              if numeric overflow occurs
      */
     public Duration plus(long amountToAdd, TemporalUnit unit) {
         Objects.requireNonNull(unit, "unit");
@@ -705,10 +397,14 @@ public final class Duration
         }
         if (unit instanceof ChronoUnit) {
             switch ((ChronoUnit) unit) {
-                case NANOS: return plusNanos(amountToAdd);
-                case MICROS: return plusSeconds((amountToAdd / (1000_000L * 1000)) * 1000).plusNanos((amountToAdd % (1000_000L * 1000)) * 1000);
-                case MILLIS: return plusMillis(amountToAdd);
-                case SECONDS: return plusSeconds(amountToAdd);
+                case NANOS:
+                    return plusNanos(amountToAdd);
+                case MICROS:
+                    return plusSeconds((amountToAdd / (1000_000L * 1000)) * 1000).plusNanos((amountToAdd % (1000_000L * 1000)) * 1000);
+                case MILLIS:
+                    return plusMillis(amountToAdd);
+                case SECONDS:
+                    return plusSeconds(amountToAdd);
             }
             return plusSeconds(Math.multiplyExact(unit.getDuration().seconds, amountToAdd));
         }
@@ -717,6 +413,7 @@ public final class Duration
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns a copy of this duration with the specified duration in standard 24 hour days added.
      * <p>
@@ -725,7 +422,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param daysToAdd  the days to add, positive or negative
+     * @param daysToAdd the days to add, positive or negative
      * @return a {@code Duration} based on this duration with the specified days added, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -738,7 +435,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param hoursToAdd  the hours to add, positive or negative
+     * @param hoursToAdd the hours to add, positive or negative
      * @return a {@code Duration} based on this duration with the specified hours added, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -751,7 +448,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param minutesToAdd  the minutes to add, positive or negative
+     * @param minutesToAdd the minutes to add, positive or negative
      * @return a {@code Duration} based on this duration with the specified minutes added, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -764,7 +461,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param secondsToAdd  the seconds to add, positive or negative
+     * @param secondsToAdd the seconds to add, positive or negative
      * @return a {@code Duration} based on this duration with the specified seconds added, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -777,7 +474,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param millisToAdd  the milliseconds to add, positive or negative
+     * @param millisToAdd the milliseconds to add, positive or negative
      * @return a {@code Duration} based on this duration with the specified milliseconds added, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -790,7 +487,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param nanosToAdd  the nanoseconds to add, positive or negative
+     * @param nanosToAdd the nanoseconds to add, positive or negative
      * @return a {@code Duration} based on this duration with the specified nanoseconds added, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -803,8 +500,8 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param secondsToAdd  the seconds to add, positive or negative
-     * @param nanosToAdd  the nanos to add, positive or negative
+     * @param secondsToAdd the seconds to add, positive or negative
+     * @param nanosToAdd   the nanos to add, positive or negative
      * @return a {@code Duration} based on this duration with the specified seconds added, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -820,12 +517,13 @@ public final class Duration
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns a copy of this duration with the specified duration subtracted.
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param duration  the duration to subtract, positive or negative, not null
+     * @param duration the duration to subtract, positive or negative, not null
      * @return a {@code Duration} based on this duration with the specified duration subtracted, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -836,7 +534,7 @@ public final class Duration
             return plus(Long.MAX_VALUE, -nanosToSubtract).plus(1, 0);
         }
         return plus(-secsToSubtract, -nanosToSubtract);
-     }
+    }
 
     /**
      * Returns a copy of this duration with the specified duration subtracted.
@@ -848,8 +546,8 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param amountToSubtract  the amount to subtract, measured in terms of the unit, positive or negative
-     * @param unit  the unit that the amount is measured in, must have an exact duration, not null
+     * @param amountToSubtract the amount to subtract, measured in terms of the unit, positive or negative
+     * @param unit             the unit that the amount is measured in, must have an exact duration, not null
      * @return a {@code Duration} based on this duration with the specified duration subtracted, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -858,6 +556,7 @@ public final class Duration
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns a copy of this duration with the specified duration in standard 24 hour days subtracted.
      * <p>
@@ -866,7 +565,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param daysToSubtract  the days to subtract, positive or negative
+     * @param daysToSubtract the days to subtract, positive or negative
      * @return a {@code Duration} based on this duration with the specified days subtracted, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -881,7 +580,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param hoursToSubtract  the hours to subtract, positive or negative
+     * @param hoursToSubtract the hours to subtract, positive or negative
      * @return a {@code Duration} based on this duration with the specified hours subtracted, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -896,7 +595,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param minutesToSubtract  the minutes to subtract, positive or negative
+     * @param minutesToSubtract the minutes to subtract, positive or negative
      * @return a {@code Duration} based on this duration with the specified minutes subtracted, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -909,7 +608,7 @@ public final class Duration
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param secondsToSubtract  the seconds to subtract, positive or negative
+     * @param secondsToSubtract the seconds to subtract, positive or negative
      * @return a {@code Duration} based on this duration with the specified seconds subtracted, not null
      * @throws ArithmeticException if numeric overflow occurs
      */
@@ -917,42 +616,14 @@ public final class Duration
         return (secondsToSubtract == Long.MIN_VALUE ? plusSeconds(Long.MAX_VALUE).plusSeconds(1) : plusSeconds(-secondsToSubtract));
     }
 
-    /**
-     * Returns a copy of this duration with the specified duration in milliseconds subtracted.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @param millisToSubtract  the milliseconds to subtract, positive or negative
-     * @return a {@code Duration} based on this duration with the specified milliseconds subtracted, not null
-     * @throws ArithmeticException if numeric overflow occurs
-     */
     public Duration minusMillis(long millisToSubtract) {
         return (millisToSubtract == Long.MIN_VALUE ? plusMillis(Long.MAX_VALUE).plusMillis(1) : plusMillis(-millisToSubtract));
     }
 
-    /**
-     * Returns a copy of this duration with the specified duration in nanoseconds subtracted.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @param nanosToSubtract  the nanoseconds to subtract, positive or negative
-     * @return a {@code Duration} based on this duration with the specified nanoseconds subtracted, not null
-     * @throws ArithmeticException if numeric overflow occurs
-     */
     public Duration minusNanos(long nanosToSubtract) {
         return (nanosToSubtract == Long.MIN_VALUE ? plusNanos(Long.MAX_VALUE).plusNanos(1) : plusNanos(-nanosToSubtract));
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Returns a copy of this duration multiplied by the scalar.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @param multiplicand  the value to multiply the duration by, positive or negative
-     * @return a {@code Duration} based on this duration multiplied by the specified scalar, not null
-     * @throws ArithmeticException if numeric overflow occurs
-     */
     public Duration multipliedBy(long multiplicand) {
         if (multiplicand == 0) {
             return ZERO;
@@ -961,17 +632,8 @@ public final class Duration
             return this;
         }
         return create(toSeconds().multiply(BigDecimal.valueOf(multiplicand)));
-     }
+    }
 
-    /**
-     * Returns a copy of this duration divided by the specified value.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @param divisor  the value to divide the duration by, positive or negative, not zero
-     * @return a {@code Duration} based on this duration divided by the specified divisor, not null
-     * @throws ArithmeticException if the divisor is zero or if numeric overflow occurs
-     */
     public Duration dividedBy(long divisor) {
         if (divisor == 0) {
             throw new ArithmeticException("Cannot divide by zero");
@@ -980,25 +642,12 @@ public final class Duration
             return this;
         }
         return create(toSeconds().divide(BigDecimal.valueOf(divisor), RoundingMode.DOWN));
-     }
+    }
 
-    /**
-     * Converts this duration to the total length in seconds and
-     * fractional nanoseconds expressed as a {@code BigDecimal}.
-     *
-     * @return the total length of the duration in seconds, with a scale of 9, not null
-     */
     private BigDecimal toSeconds() {
         return BigDecimal.valueOf(seconds).add(BigDecimal.valueOf(nanos, 9));
     }
 
-    /**
-     * Creates an instance of {@code Duration} from a number of seconds.
-     *
-     * @param seconds  the number of seconds, up to scale 9, positive or negative
-     * @return a {@code Duration}, not null
-     * @throws ArithmeticException if numeric overflow occurs
-     */
     private static Duration create(BigDecimal seconds) {
         BigInteger nanos = seconds.movePointRight(9).toBigIntegerExact();
         BigInteger[] divRem = nanos.divideAndRemainder(BI_NANOS_PER_SECOND);
@@ -1008,62 +657,15 @@ public final class Duration
         return ofSeconds(divRem[0].longValue(), divRem[1].intValue());
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Returns a copy of this duration with the length negated.
-     * <p>
-     * This method swaps the sign of the total length of this duration.
-     * For example, {@code PT1.3S} will be returned as {@code PT-1.3S}.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @return a {@code Duration} based on this duration with the amount negated, not null
-     * @throws ArithmeticException if numeric overflow occurs
-     */
     public Duration negated() {
         return multipliedBy(-1);
     }
 
-    /**
-     * Returns a copy of this duration with a positive length.
-     * <p>
-     * This method returns a positive duration by effectively removing the sign from any negative total length.
-     * For example, {@code PT-1.3S} will be returned as {@code PT1.3S}.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @return a {@code Duration} based on this duration with an absolute length, not null
-     * @throws ArithmeticException if numeric overflow occurs
-     */
+
     public Duration abs() {
         return isNegative() ? negated() : this;
     }
 
-    //-------------------------------------------------------------------------
-    /**
-     * Adds this duration to the specified temporal object.
-     * <p>
-     * This returns a temporal object of the same observable type as the input
-     * with this duration added.
-     * <p>
-     * In most cases, it is clearer to reverse the calling pattern by using
-     * {@link Temporal#plus(TemporalAmount)}.
-     * <pre>
-     *   // these two lines are equivalent, but the second approach is recommended
-     *   dateTime = thisDuration.addTo(dateTime);
-     *   dateTime = dateTime.plus(thisDuration);
-     * </pre>
-     * <p>
-     * The calculation will add the seconds, then nanos.
-     * Only non-zero amounts will be added.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @param temporal  the temporal object to adjust, not null
-     * @return an object of the same type with the adjustment made, not null
-     * @throws DateTimeException if unable to add
-     * @throws ArithmeticException if numeric overflow occurs
-     */
     @Override
     public Temporal addTo(Temporal temporal) {
         if (seconds != 0) {
@@ -1075,30 +677,6 @@ public final class Duration
         return temporal;
     }
 
-    /**
-     * Subtracts this duration from the specified temporal object.
-     * <p>
-     * This returns a temporal object of the same observable type as the input
-     * with this duration subtracted.
-     * <p>
-     * In most cases, it is clearer to reverse the calling pattern by using
-     * {@link Temporal#minus(TemporalAmount)}.
-     * <pre>
-     *   // these two lines are equivalent, but the second approach is recommended
-     *   dateTime = thisDuration.subtractFrom(dateTime);
-     *   dateTime = dateTime.minus(thisDuration);
-     * </pre>
-     * <p>
-     * The calculation will subtract the seconds, then nanos.
-     * Only non-zero amounts will be added.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @param temporal  the temporal object to adjust, not null
-     * @return an object of the same type with the adjustment made, not null
-     * @throws DateTimeException if unable to subtract
-     * @throws ArithmeticException if numeric overflow occurs
-     */
     @Override
     public Temporal subtractFrom(Temporal temporal) {
         if (seconds != 0) {
@@ -1110,63 +688,19 @@ public final class Duration
         return temporal;
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Gets the number of days in this duration.
-     * <p>
-     * This returns the total number of days in the duration by dividing the
-     * number of seconds by 86400.
-     * This is based on the standard definition of a day as 24 hours.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @return the number of days in the duration, may be negative
-     */
     public long toDays() {
         return seconds / SECONDS_PER_DAY;
     }
 
-    /**
-     * Gets the number of hours in this duration.
-     * <p>
-     * This returns the total number of hours in the duration by dividing the
-     * number of seconds by 3600.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @return the number of hours in the duration, may be negative
-     */
     public long toHours() {
         return seconds / SECONDS_PER_HOUR;
     }
 
-    /**
-     * Gets the number of minutes in this duration.
-     * <p>
-     * This returns the total number of minutes in the duration by dividing the
-     * number of seconds by 60.
-     * <p>
-     * This instance is immutable and unaffected by this method call.
-     *
-     * @return the number of minutes in the duration, may be negative
-     */
+
     public long toMinutes() {
         return seconds / SECONDS_PER_MINUTE;
     }
 
-    /**
-     * Converts this duration to the total length in milliseconds.
-     * <p>
-     * If this duration is too large to fit in a {@code long} milliseconds, then an
-     * exception is thrown.
-     * <p>
-     * If this duration has greater than millisecond precision, then the conversion
-     * will drop any excess precision information as though the amount in nanoseconds
-     * was subject to integer division by one million.
-     *
-     * @return the total length of the duration in milliseconds
-     * @throws ArithmeticException if numeric overflow occurs
-     */
     public long toMillis() {
         long millis = Math.multiplyExact(seconds, 1000);
         millis = Math.addExact(millis, nanos / 1000_000);
@@ -1174,13 +708,7 @@ public final class Duration
     }
 
     /**
-     * Converts this duration to the total length in nanoseconds expressed as a {@code long}.
-     * <p>
-     * If this duration is too large to fit in a {@code long} nanoseconds, then an
-     * exception is thrown.
-     *
-     * @return the total length of the duration in nanoseconds
-     * @throws ArithmeticException if numeric overflow occurs
+     * 返回这个周期的纳秒值
      */
     public long toNanos() {
         long totalNanos = Math.multiplyExact(seconds, NANOS_PER_SECOND);
@@ -1188,16 +716,6 @@ public final class Duration
         return totalNanos;
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Compares this duration to the specified {@code Duration}.
-     * <p>
-     * The comparison is based on the total length of the durations.
-     * It is "consistent with equals", as defined by {@link Comparable}.
-     *
-     * @param otherDuration  the other duration to compare to, not null
-     * @return the comparator value, negative if less, positive if greater
-     */
     @Override
     public int compareTo(Duration otherDuration) {
         int cmp = Long.compare(seconds, otherDuration.seconds);
@@ -1207,15 +725,6 @@ public final class Duration
         return nanos - otherDuration.nanos;
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Checks if this duration is equal to the specified {@code Duration}.
-     * <p>
-     * The comparison is based on the total length of the durations.
-     *
-     * @param otherDuration  the other duration, null returns false
-     * @return true if the other duration is equal to this one
-     */
     @Override
     public boolean equals(Object otherDuration) {
         if (this == otherDuration) {
@@ -1224,44 +733,16 @@ public final class Duration
         if (otherDuration instanceof Duration) {
             Duration other = (Duration) otherDuration;
             return this.seconds == other.seconds &&
-                   this.nanos == other.nanos;
+                    this.nanos == other.nanos;
         }
         return false;
     }
 
-    /**
-     * A hash code for this duration.
-     *
-     * @return a suitable hash code
-     */
     @Override
     public int hashCode() {
         return ((int) (seconds ^ (seconds >>> 32))) + (51 * nanos);
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * A string representation of this duration using ISO-8601 seconds
-     * based representation, such as {@code PT8H6M12.345S}.
-     * <p>
-     * The format of the returned string will be {@code PTnHnMnS}, where n is
-     * the relevant hours, minutes or seconds part of the duration.
-     * Any fractional seconds are placed after a decimal point i the seconds section.
-     * If a section has a zero value, it is omitted.
-     * The hours, minutes and seconds will all have the same sign.
-     * <p>
-     * Examples:
-     * <pre>
-     *    "20.345 seconds"                 -- "PT20.345S
-     *    "15 minutes" (15 * 60 seconds)   -- "PT15M"
-     *    "10 hours" (10 * 3600 seconds)   -- "PT10H"
-     *    "2 days" (2 * 86400 seconds)     -- "PT48H"
-     * </pre>
-     * Note that multiples of 24 hours are not output as days to avoid confusion
-     * with {@code Period}.
-     *
-     * @return an ISO-8601 representation of this duration, not null
-     */
     @Override
     public String toString() {
         if (this == ZERO) {
@@ -1306,29 +787,10 @@ public final class Duration
         return buf.toString();
     }
 
-    //-----------------------------------------------------------------------
-    /**
-     * Writes the object using a
-     * <a href="../../serialized-form.html#java.time.Ser">dedicated serialized form</a>.
-     * @serialData
-     * <pre>
-     *  out.writeByte(1);  // identifies a Duration
-     *  out.writeLong(seconds);
-     *  out.writeInt(nanos);
-     * </pre>
-     *
-     * @return the instance of {@code Ser}, not null
-     */
     private Object writeReplace() {
         return new Ser(Ser.DURATION_TYPE, this);
     }
 
-    /**
-     * Defend against malicious streams.
-     *
-     * @param s the stream to read
-     * @throws InvalidObjectException always
-     */
     private void readObject(ObjectInputStream s) throws InvalidObjectException {
         throw new InvalidObjectException("Deserialization via serialization delegate");
     }

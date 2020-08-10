@@ -1,211 +1,21 @@
-/*
- * Copyright (c) 2012, 2015, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
-/*
- *
- *
- *
- *
- *
- * Copyright (c) 2007-2012, Stephen Colebourne & Michael Nascimento Santos
- *
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- *  * Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- *  * Neither the name of JSR-310 nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package java.time;
 
-import static java.time.LocalTime.NANOS_PER_SECOND;
-import static java.time.LocalTime.SECONDS_PER_DAY;
-import static java.time.LocalTime.SECONDS_PER_HOUR;
-import static java.time.LocalTime.SECONDS_PER_MINUTE;
-import static java.time.temporal.ChronoField.INSTANT_SECONDS;
-import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
-import static java.time.temporal.ChronoField.MILLI_OF_SECOND;
-import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import java.io.*;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.*;
+import java.util.Objects;
+
+import static java.time.LocalTime.*;
+import static java.time.temporal.ChronoField.*;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.NANOS;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.io.InvalidObjectException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoField;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.Temporal;
-import java.time.temporal.TemporalAccessor;
-import java.time.temporal.TemporalAdjuster;
-import java.time.temporal.TemporalAmount;
-import java.time.temporal.TemporalField;
-import java.time.temporal.TemporalQueries;
-import java.time.temporal.TemporalQuery;
-import java.time.temporal.TemporalUnit;
-import java.time.temporal.UnsupportedTemporalTypeException;
-import java.time.temporal.ValueRange;
-import java.util.Objects;
 
 /**
- * An instantaneous point on the time-line.
- * <p>
- * This class models a single instantaneous point on the time-line.
- * This might be used to record event time-stamps in the application.
- * <p>
- * The range of an instant requires the storage of a number larger than a {@code long}.
- * To achieve this, the class stores a {@code long} representing epoch-seconds and an
- * {@code int} representing nanosecond-of-second, which will always be between 0 and 999,999,999.
- * The epoch-seconds are measured from the standard Java epoch of {@code 1970-01-01T00:00:00Z}
- * where instants after the epoch have positive values, and earlier instants have negative values.
- * For both the epoch-second and nanosecond parts, a larger value is always later on the time-line
- * than a smaller value.
- *
- * <h3>Time-scale</h3>
- * <p>
- * The length of the solar day is the standard way that humans measure time.
- * This has traditionally been subdivided into 24 hours of 60 minutes of 60 seconds,
- * forming a 86400 second day.
- * <p>
- * Modern timekeeping is based on atomic clocks which precisely define an SI second
- * relative to the transitions of a Caesium atom. The length of an SI second was defined
- * to be very close to the 86400th fraction of a day.
- * <p>
- * Unfortunately, as the Earth rotates the length of the day varies.
- * In addition, over time the average length of the day is getting longer as the Earth slows.
- * As a result, the length of a solar day in 2012 is slightly longer than 86400 SI seconds.
- * The actual length of any given day and the amount by which the Earth is slowing
- * are not predictable and can only be determined by measurement.
- * The UT1 time-scale captures the accurate length of day, but is only available some
- * time after the day has completed.
- * <p>
- * The UTC time-scale is a standard approach to bundle up all the additional fractions
- * of a second from UT1 into whole seconds, known as <i>leap-seconds</i>.
- * A leap-second may be added or removed depending on the Earth's rotational changes.
- * As such, UTC permits a day to have 86399 SI seconds or 86401 SI seconds where
- * necessary in order to keep the day aligned with the Sun.
- * <p>
- * The modern UTC time-scale was introduced in 1972, introducing the concept of whole leap-seconds.
- * Between 1958 and 1972, the definition of UTC was complex, with minor sub-second leaps and
- * alterations to the length of the notional second. As of 2012, discussions are underway
- * to change the definition of UTC again, with the potential to remove leap seconds or
- * introduce other changes.
- * <p>
- * Given the complexity of accurate timekeeping described above, this Java API defines
- * its own time-scale, the <i>Java Time-Scale</i>.
- * <p>
- * The Java Time-Scale divides each calendar day into exactly 86400
- * subdivisions, known as seconds.  These seconds may differ from the
- * SI second.  It closely matches the de facto international civil time
- * scale, the definition of which changes from time to time.
- * <p>
- * The Java Time-Scale has slightly different definitions for different
- * segments of the time-line, each based on the consensus international
- * time scale that is used as the basis for civil time. Whenever the
- * internationally-agreed time scale is modified or replaced, a new
- * segment of the Java Time-Scale must be defined for it.  Each segment
- * must meet these requirements:
- * <ul>
- * <li>the Java Time-Scale shall closely match the underlying international
- *  civil time scale;</li>
- * <li>the Java Time-Scale shall exactly match the international civil
- *  time scale at noon each day;</li>
- * <li>the Java Time-Scale shall have a precisely-defined relationship to
- *  the international civil time scale.</li>
- * </ul>
- * There are currently, as of 2013, two segments in the Java time-scale.
- * <p>
- * For the segment from 1972-11-03 (exact boundary discussed below) until
- * further notice, the consensus international time scale is UTC (with
- * leap seconds).  In this segment, the Java Time-Scale is identical to
- * <a href="http://www.cl.cam.ac.uk/~mgk25/time/utc-sls/">UTC-SLS</a>.
- * This is identical to UTC on days that do not have a leap second.
- * On days that do have a leap second, the leap second is spread equally
- * over the last 1000 seconds of the day, maintaining the appearance of
- * exactly 86400 seconds per day.
- * <p>
- * For the segment prior to 1972-11-03, extending back arbitrarily far,
- * the consensus international time scale is defined to be UT1, applied
- * proleptically, which is equivalent to the (mean) solar time on the
- * prime meridian (Greenwich). In this segment, the Java Time-Scale is
- * identical to the consensus international time scale. The exact
- * boundary between the two segments is the instant where UT1 = UTC
- * between 1972-11-03T00:00 and 1972-11-04T12:00.
- * <p>
- * Implementations of the Java time-scale using the JSR-310 API are not
- * required to provide any clock that is sub-second accurate, or that
- * progresses monotonically or smoothly. Implementations are therefore
- * not required to actually perform the UTC-SLS slew or to otherwise be
- * aware of leap seconds. JSR-310 does, however, require that
- * implementations must document the approach they use when defining a
- * clock representing the current instant.
- * See {@link Clock} for details on the available clocks.
- * <p>
- * The Java time-scale is used for all date-time classes.
- * This includes {@code Instant}, {@code LocalDate}, {@code LocalTime}, {@code OffsetDateTime},
- * {@code ZonedDateTime} and {@code Duration}.
- *
- * <p>
- * This is a <a href="{@docRoot}/java/lang/doc-files/ValueBased.html">value-based</a>
- * class; use of identity-sensitive operations (including reference equality
- * ({@code ==}), identity hash code, or synchronization) on instances of
- * {@code Instant} may have unpredictable results and should be avoided.
- * The {@code equals} method should be used for comparisons.
- *
- * @implSpec
- * This class is immutable and thread-safe.
- *
- * @since 1.8
+ * 当前时间为时间线上的瞬时时间,可用于记录时间戳.
  */
-public final class Instant
-        implements Temporal, TemporalAdjuster, Comparable<Instant>, Serializable {
+public final class Instant implements Temporal, TemporalAdjuster, Comparable<Instant>, Serializable {
 
     /**
      * Constant for the 1970-01-01T00:00:00Z epoch instant.
@@ -219,27 +29,9 @@ public final class Instant
      * The maximum supported epoch second.
      */
     private static final long MAX_SECOND = 31556889864403199L;
-    /**
-     * The minimum supported {@code Instant}, '-1000000000-01-01T00:00Z'.
-     * This could be used by an application as a "far past" instant.
-     * <p>
-     * This is one year earlier than the minimum {@code LocalDateTime}.
-     * This provides sufficient values to handle the range of {@code ZoneOffset}
-     * which affect the instant in addition to the local date-time.
-     * The value is also chosen such that the value of the year fits in
-     * an {@code int}.
-     */
+
     public static final Instant MIN = Instant.ofEpochSecond(MIN_SECOND, 0);
-    /**
-     * The maximum supported {@code Instant}, '1000000000-12-31T23:59:59.999999999Z'.
-     * This could be used by an application as a "far future" instant.
-     * <p>
-     * This is one year later than the maximum {@code LocalDateTime}.
-     * This provides sufficient values to handle the range of {@code ZoneOffset}
-     * which affect the instant in addition to the local date-time.
-     * The value is also chosen such that the value of the year fits in
-     * an {@code int}.
-     */
+
     public static final Instant MAX = Instant.ofEpochSecond(MAX_SECOND, 999_999_999);
 
     /**
@@ -249,6 +41,7 @@ public final class Instant
 
     /**
      * The number of seconds from the epoch of 1970-01-01T00:00:00Z.
+     * 到 1970-01-01T00:00:00Z 的秒值
      */
     private final long seconds;
     /**
@@ -257,18 +50,6 @@ public final class Instant
      */
     private final int nanos;
 
-    //-----------------------------------------------------------------------
-    /**
-     * Obtains the current instant from the system clock.
-     * <p>
-     * This will query the {@link Clock#systemUTC() system UTC clock} to
-     * obtain the current instant.
-     * <p>
-     * Using this method will prevent the ability to use an alternate time-source for
-     * testing because the clock is effectively hard-coded.
-     *
-     * @return the current instant using the system clock, not null
-     */
     public static Instant now() {
         return Clock.systemUTC().instant();
     }
@@ -281,7 +62,7 @@ public final class Instant
      * Using this method allows the use of an alternate clock for testing.
      * The alternate clock may be introduced using {@link Clock dependency injection}.
      *
-     * @param clock  the clock to use, not null
+     * @param clock the clock to use, not null
      * @return the current instant, not null
      */
     public static Instant now(Clock clock) {
@@ -290,13 +71,14 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Obtains an instance of {@code Instant} using seconds from the
      * epoch of 1970-01-01T00:00:00Z.
      * <p>
      * The nanosecond field is set to zero.
      *
-     * @param epochSecond  the number of seconds from 1970-01-01T00:00:00Z
+     * @param epochSecond the number of seconds from 1970-01-01T00:00:00Z
      * @return an instant, not null
      * @throws DateTimeException if the instant exceeds the maximum or minimum instant
      */
@@ -318,15 +100,15 @@ public final class Instant
      *  Instant.ofEpochSecond(2, 1000_000_001);
      * </pre>
      *
-     * @param epochSecond  the number of seconds from 1970-01-01T00:00:00Z
-     * @param nanoAdjustment  the nanosecond adjustment to the number of seconds, positive or negative
+     * @param epochSecond    the number of seconds from 1970-01-01T00:00:00Z
+     * @param nanoAdjustment the nanosecond adjustment to the number of seconds, positive or negative
      * @return an instant, not null
-     * @throws DateTimeException if the instant exceeds the maximum or minimum instant
+     * @throws DateTimeException   if the instant exceeds the maximum or minimum instant
      * @throws ArithmeticException if numeric overflow occurs
      */
     public static Instant ofEpochSecond(long epochSecond, long nanoAdjustment) {
         long secs = Math.addExact(epochSecond, Math.floorDiv(nanoAdjustment, NANOS_PER_SECOND));
-        int nos = (int)Math.floorMod(nanoAdjustment, NANOS_PER_SECOND);
+        int nos = (int) Math.floorMod(nanoAdjustment, NANOS_PER_SECOND);
         return create(secs, nos);
     }
 
@@ -336,17 +118,18 @@ public final class Instant
      * <p>
      * The seconds and nanoseconds are extracted from the specified milliseconds.
      *
-     * @param epochMilli  the number of milliseconds from 1970-01-01T00:00:00Z
+     * @param epochMilli the number of milliseconds from 1970-01-01T00:00:00Z
      * @return an instant, not null
      * @throws DateTimeException if the instant exceeds the maximum or minimum instant
      */
     public static Instant ofEpochMilli(long epochMilli) {
         long secs = Math.floorDiv(epochMilli, 1000);
-        int mos = (int)Math.floorMod(epochMilli, 1000);
+        int mos = (int) Math.floorMod(epochMilli, 1000);
         return create(secs, mos * 1000_000);
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Obtains an instance of {@code Instant} from a temporal object.
      * <p>
@@ -360,7 +143,7 @@ public final class Instant
      * This method matches the signature of the functional interface {@link TemporalQuery}
      * allowing it to be used as a query via method reference, {@code Instant::from}.
      *
-     * @param temporal  the temporal object to convert, not null
+     * @param temporal the temporal object to convert, not null
      * @return the instant, not null
      * @throws DateTimeException if unable to convert to an {@code Instant}
      */
@@ -380,6 +163,7 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Obtains an instance of {@code Instant} from a text string such as
      * {@code 2007-12-03T10:15:30.00Z}.
@@ -387,7 +171,7 @@ public final class Instant
      * The string must represent a valid instant in UTC and is parsed using
      * {@link DateTimeFormatter#ISO_INSTANT}.
      *
-     * @param text  the text to parse, not null
+     * @param text the text to parse, not null
      * @return the parsed instant, not null
      * @throws DateTimeParseException if the text cannot be parsed
      */
@@ -396,11 +180,12 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Obtains an instance of {@code Instant} using seconds and nanoseconds.
      *
-     * @param seconds  the length of the duration in seconds
-     * @param nanoOfSecond  the nano-of-second, from 0 to 999,999,999
+     * @param seconds      the length of the duration in seconds
+     * @param nanoOfSecond the nano-of-second, from 0 to 999,999,999
      * @throws DateTimeException if the instant exceeds the maximum or minimum instant
      */
     private static Instant create(long seconds, int nanoOfSecond) {
@@ -417,8 +202,8 @@ public final class Instant
      * Constructs an instance of {@code Instant} using seconds from the epoch of
      * 1970-01-01T00:00:00Z and nanosecond fraction of second.
      *
-     * @param epochSecond  the number of seconds from 1970-01-01T00:00:00Z
-     * @param nanos  the nanoseconds within the second, must be positive
+     * @param epochSecond the number of seconds from 1970-01-01T00:00:00Z
+     * @param nanos       the nanoseconds within the second, must be positive
      */
     private Instant(long epochSecond, int nanos) {
         super();
@@ -427,6 +212,7 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Checks if the specified field is supported.
      * <p>
@@ -450,7 +236,7 @@ public final class Instant
      * passing {@code this} as the argument.
      * Whether the field is supported is determined by the field.
      *
-     * @param field  the field to check, null returns false
+     * @param field the field to check, null returns false
      * @return true if the field is supported on this instant, false if not
      */
     @Override
@@ -487,7 +273,7 @@ public final class Instant
      * passing {@code this} as the argument.
      * Whether the unit is supported is determined by the unit.
      *
-     * @param unit  the unit to check, null returns false
+     * @param unit the unit to check, null returns false
      * @return true if the unit can be added/subtracted, false if not
      */
     @Override
@@ -499,6 +285,7 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Gets the range of valid values for the specified field.
      * <p>
@@ -517,9 +304,9 @@ public final class Instant
      * passing {@code this} as the argument.
      * Whether the range can be obtained is determined by the field.
      *
-     * @param field  the field to query the range for, not null
+     * @param field the field to query the range for, not null
      * @return the range of valid values for the field, not null
-     * @throws DateTimeException if the range for the field cannot be obtained
+     * @throws DateTimeException                if the range for the field cannot be obtained
      * @throws UnsupportedTemporalTypeException if the field is not supported
      */
     @Override  // override for Javadoc
@@ -546,22 +333,26 @@ public final class Instant
      * passing {@code this} as the argument. Whether the value can be obtained,
      * and what the value represents, is determined by the field.
      *
-     * @param field  the field to get, not null
+     * @param field the field to get, not null
      * @return the value for the field
-     * @throws DateTimeException if a value for the field cannot be obtained or
-     *         the value is outside the range of valid values for the field
+     * @throws DateTimeException                if a value for the field cannot be obtained or
+     *                                          the value is outside the range of valid values for the field
      * @throws UnsupportedTemporalTypeException if the field is not supported or
-     *         the range of values exceeds an {@code int}
-     * @throws ArithmeticException if numeric overflow occurs
+     *                                          the range of values exceeds an {@code int}
+     * @throws ArithmeticException              if numeric overflow occurs
      */
     @Override  // override for Javadoc and performance
     public int get(TemporalField field) {
         if (field instanceof ChronoField) {
             switch ((ChronoField) field) {
-                case NANO_OF_SECOND: return nanos;
-                case MICRO_OF_SECOND: return nanos / 1000;
-                case MILLI_OF_SECOND: return nanos / 1000_000;
-                case INSTANT_SECONDS: INSTANT_SECONDS.checkValidIntValue(seconds);
+                case NANO_OF_SECOND:
+                    return nanos;
+                case MICRO_OF_SECOND:
+                    return nanos / 1000;
+                case MILLI_OF_SECOND:
+                    return nanos / 1000_000;
+                case INSTANT_SECONDS:
+                    INSTANT_SECONDS.checkValidIntValue(seconds);
             }
             throw new UnsupportedTemporalTypeException("Unsupported field: " + field);
         }
@@ -585,20 +376,24 @@ public final class Instant
      * passing {@code this} as the argument. Whether the value can be obtained,
      * and what the value represents, is determined by the field.
      *
-     * @param field  the field to get, not null
+     * @param field the field to get, not null
      * @return the value for the field
-     * @throws DateTimeException if a value for the field cannot be obtained
+     * @throws DateTimeException                if a value for the field cannot be obtained
      * @throws UnsupportedTemporalTypeException if the field is not supported
-     * @throws ArithmeticException if numeric overflow occurs
+     * @throws ArithmeticException              if numeric overflow occurs
      */
     @Override
     public long getLong(TemporalField field) {
         if (field instanceof ChronoField) {
             switch ((ChronoField) field) {
-                case NANO_OF_SECOND: return nanos;
-                case MICRO_OF_SECOND: return nanos / 1000;
-                case MILLI_OF_SECOND: return nanos / 1000_000;
-                case INSTANT_SECONDS: return seconds;
+                case NANO_OF_SECOND:
+                    return nanos;
+                case MICRO_OF_SECOND:
+                    return nanos / 1000;
+                case MILLI_OF_SECOND:
+                    return nanos / 1000_000;
+                case INSTANT_SECONDS:
+                    return seconds;
             }
             throw new UnsupportedTemporalTypeException("Unsupported field: " + field);
         }
@@ -606,6 +401,7 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Gets the number of seconds from the Java epoch of 1970-01-01T00:00:00Z.
      * <p>
@@ -633,6 +429,7 @@ public final class Instant
     }
 
     //-------------------------------------------------------------------------
+
     /**
      * Returns an adjusted copy of this instant.
      * <p>
@@ -648,7 +445,7 @@ public final class Instant
      *
      * @param adjuster the adjuster to use, not null
      * @return an {@code Instant} based on {@code this} with the adjustment made, not null
-     * @throws DateTimeException if the adjustment cannot be made
+     * @throws DateTimeException   if the adjustment cannot be made
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
@@ -693,12 +490,12 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param field  the field to set in the result, not null
-     * @param newValue  the new value of the field in the result
+     * @param field    the field to set in the result, not null
+     * @param newValue the new value of the field in the result
      * @return an {@code Instant} based on {@code this} with the specified field set, not null
-     * @throws DateTimeException if the field cannot be set
+     * @throws DateTimeException                if the field cannot be set
      * @throws UnsupportedTemporalTypeException if the field is not supported
-     * @throws ArithmeticException if numeric overflow occurs
+     * @throws ArithmeticException              if numeric overflow occurs
      */
     @Override
     public Instant with(TemporalField field, long newValue) {
@@ -714,8 +511,10 @@ public final class Instant
                     int nval = (int) newValue * 1000;
                     return (nval != nanos ? create(seconds, nval) : this);
                 }
-                case NANO_OF_SECOND: return (newValue != nanos ? create(seconds, (int) newValue) : this);
-                case INSTANT_SECONDS: return (newValue != seconds ? create(newValue, nanos) : this);
+                case NANO_OF_SECOND:
+                    return (newValue != nanos ? create(seconds, (int) newValue) : this);
+                case INSTANT_SECONDS:
+                    return (newValue != seconds ? create(newValue, nanos) : this);
             }
             throw new UnsupportedTemporalTypeException("Unsupported field: " + field);
         }
@@ -723,6 +522,7 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns a copy of this {@code Instant} truncated to the specified unit.
      * <p>
@@ -740,9 +540,9 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param unit  the unit to truncate to, not null
+     * @param unit the unit to truncate to, not null
      * @return an {@code Instant} based on this instant with the time truncated, not null
-     * @throws DateTimeException if the unit is invalid for truncation
+     * @throws DateTimeException                if the unit is invalid for truncation
      * @throws UnsupportedTemporalTypeException if the unit is not supported
      */
     public Instant truncatedTo(TemporalUnit unit) {
@@ -763,6 +563,7 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns a copy of this instant with the specified amount added.
      * <p>
@@ -778,9 +579,9 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param amountToAdd  the amount to add, not null
+     * @param amountToAdd the amount to add, not null
      * @return an {@code Instant} based on this instant with the addition made, not null
-     * @throws DateTimeException if the addition cannot be made
+     * @throws DateTimeException   if the addition cannot be made
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
@@ -839,25 +640,33 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param amountToAdd  the amount of the unit to add to the result, may be negative
-     * @param unit  the unit of the amount to add, not null
+     * @param amountToAdd the amount of the unit to add to the result, may be negative
+     * @param unit        the unit of the amount to add, not null
      * @return an {@code Instant} based on this instant with the specified amount added, not null
-     * @throws DateTimeException if the addition cannot be made
+     * @throws DateTimeException                if the addition cannot be made
      * @throws UnsupportedTemporalTypeException if the unit is not supported
-     * @throws ArithmeticException if numeric overflow occurs
+     * @throws ArithmeticException              if numeric overflow occurs
      */
     @Override
     public Instant plus(long amountToAdd, TemporalUnit unit) {
         if (unit instanceof ChronoUnit) {
             switch ((ChronoUnit) unit) {
-                case NANOS: return plusNanos(amountToAdd);
-                case MICROS: return plus(amountToAdd / 1000_000, (amountToAdd % 1000_000) * 1000);
-                case MILLIS: return plusMillis(amountToAdd);
-                case SECONDS: return plusSeconds(amountToAdd);
-                case MINUTES: return plusSeconds(Math.multiplyExact(amountToAdd, SECONDS_PER_MINUTE));
-                case HOURS: return plusSeconds(Math.multiplyExact(amountToAdd, SECONDS_PER_HOUR));
-                case HALF_DAYS: return plusSeconds(Math.multiplyExact(amountToAdd, SECONDS_PER_DAY / 2));
-                case DAYS: return plusSeconds(Math.multiplyExact(amountToAdd, SECONDS_PER_DAY));
+                case NANOS:
+                    return plusNanos(amountToAdd);
+                case MICROS:
+                    return plus(amountToAdd / 1000_000, (amountToAdd % 1000_000) * 1000);
+                case MILLIS:
+                    return plusMillis(amountToAdd);
+                case SECONDS:
+                    return plusSeconds(amountToAdd);
+                case MINUTES:
+                    return plusSeconds(Math.multiplyExact(amountToAdd, SECONDS_PER_MINUTE));
+                case HOURS:
+                    return plusSeconds(Math.multiplyExact(amountToAdd, SECONDS_PER_HOUR));
+                case HALF_DAYS:
+                    return plusSeconds(Math.multiplyExact(amountToAdd, SECONDS_PER_DAY / 2));
+                case DAYS:
+                    return plusSeconds(Math.multiplyExact(amountToAdd, SECONDS_PER_DAY));
             }
             throw new UnsupportedTemporalTypeException("Unsupported unit: " + unit);
         }
@@ -865,14 +674,15 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns a copy of this instant with the specified duration in seconds added.
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param secondsToAdd  the seconds to add, positive or negative
+     * @param secondsToAdd the seconds to add, positive or negative
      * @return an {@code Instant} based on this instant with the specified seconds added, not null
-     * @throws DateTimeException if the result exceeds the maximum or minimum instant
+     * @throws DateTimeException   if the result exceeds the maximum or minimum instant
      * @throws ArithmeticException if numeric overflow occurs
      */
     public Instant plusSeconds(long secondsToAdd) {
@@ -884,9 +694,9 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param millisToAdd  the milliseconds to add, positive or negative
+     * @param millisToAdd the milliseconds to add, positive or negative
      * @return an {@code Instant} based on this instant with the specified milliseconds added, not null
-     * @throws DateTimeException if the result exceeds the maximum or minimum instant
+     * @throws DateTimeException   if the result exceeds the maximum or minimum instant
      * @throws ArithmeticException if numeric overflow occurs
      */
     public Instant plusMillis(long millisToAdd) {
@@ -898,9 +708,9 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param nanosToAdd  the nanoseconds to add, positive or negative
+     * @param nanosToAdd the nanoseconds to add, positive or negative
      * @return an {@code Instant} based on this instant with the specified nanoseconds added, not null
-     * @throws DateTimeException if the result exceeds the maximum or minimum instant
+     * @throws DateTimeException   if the result exceeds the maximum or minimum instant
      * @throws ArithmeticException if numeric overflow occurs
      */
     public Instant plusNanos(long nanosToAdd) {
@@ -912,10 +722,10 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param secondsToAdd  the seconds to add, positive or negative
-     * @param nanosToAdd  the nanos to add, positive or negative
+     * @param secondsToAdd the seconds to add, positive or negative
+     * @param nanosToAdd   the nanos to add, positive or negative
      * @return an {@code Instant} based on this instant with the specified seconds added, not null
-     * @throws DateTimeException if the result exceeds the maximum or minimum instant
+     * @throws DateTimeException   if the result exceeds the maximum or minimum instant
      * @throws ArithmeticException if numeric overflow occurs
      */
     private Instant plus(long secondsToAdd, long nanosToAdd) {
@@ -930,6 +740,7 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns a copy of this instant with the specified amount subtracted.
      * <p>
@@ -945,9 +756,9 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param amountToSubtract  the amount to subtract, not null
+     * @param amountToSubtract the amount to subtract, not null
      * @return an {@code Instant} based on this instant with the subtraction made, not null
-     * @throws DateTimeException if the subtraction cannot be made
+     * @throws DateTimeException   if the subtraction cannot be made
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
@@ -967,12 +778,12 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param amountToSubtract  the amount of the unit to subtract from the result, may be negative
-     * @param unit  the unit of the amount to subtract, not null
+     * @param amountToSubtract the amount of the unit to subtract from the result, may be negative
+     * @param unit             the unit of the amount to subtract, not null
      * @return an {@code Instant} based on this instant with the specified amount subtracted, not null
-     * @throws DateTimeException if the subtraction cannot be made
+     * @throws DateTimeException                if the subtraction cannot be made
      * @throws UnsupportedTemporalTypeException if the unit is not supported
-     * @throws ArithmeticException if numeric overflow occurs
+     * @throws ArithmeticException              if numeric overflow occurs
      */
     @Override
     public Instant minus(long amountToSubtract, TemporalUnit unit) {
@@ -980,14 +791,15 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Returns a copy of this instant with the specified duration in seconds subtracted.
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param secondsToSubtract  the seconds to subtract, positive or negative
+     * @param secondsToSubtract the seconds to subtract, positive or negative
      * @return an {@code Instant} based on this instant with the specified seconds subtracted, not null
-     * @throws DateTimeException if the result exceeds the maximum or minimum instant
+     * @throws DateTimeException   if the result exceeds the maximum or minimum instant
      * @throws ArithmeticException if numeric overflow occurs
      */
     public Instant minusSeconds(long secondsToSubtract) {
@@ -1002,9 +814,9 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param millisToSubtract  the milliseconds to subtract, positive or negative
+     * @param millisToSubtract the milliseconds to subtract, positive or negative
      * @return an {@code Instant} based on this instant with the specified milliseconds subtracted, not null
-     * @throws DateTimeException if the result exceeds the maximum or minimum instant
+     * @throws DateTimeException   if the result exceeds the maximum or minimum instant
      * @throws ArithmeticException if numeric overflow occurs
      */
     public Instant minusMillis(long millisToSubtract) {
@@ -1019,9 +831,9 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param nanosToSubtract  the nanoseconds to subtract, positive or negative
+     * @param nanosToSubtract the nanoseconds to subtract, positive or negative
      * @return an {@code Instant} based on this instant with the specified nanoseconds subtracted, not null
-     * @throws DateTimeException if the result exceeds the maximum or minimum instant
+     * @throws DateTimeException   if the result exceeds the maximum or minimum instant
      * @throws ArithmeticException if numeric overflow occurs
      */
     public Instant minusNanos(long nanosToSubtract) {
@@ -1032,6 +844,7 @@ public final class Instant
     }
 
     //-------------------------------------------------------------------------
+
     /**
      * Queries this instant using the specified query.
      * <p>
@@ -1044,10 +857,10 @@ public final class Instant
      * {@link TemporalQuery#queryFrom(TemporalAccessor)} method on the
      * specified query passing {@code this} as the argument.
      *
-     * @param <R> the type of the result
-     * @param query  the query to invoke, not null
+     * @param <R>   the type of the result
+     * @param query the query to invoke, not null
      * @return the query result, null may be returned (defined by the query)
-     * @throws DateTimeException if unable to query (defined by the query)
+     * @throws DateTimeException   if unable to query (defined by the query)
      * @throws ArithmeticException if numeric overflow occurs (defined by the query)
      */
     @SuppressWarnings("unchecked")
@@ -1085,9 +898,9 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param temporal  the target object to be adjusted, not null
+     * @param temporal the target object to be adjusted, not null
      * @return the adjusted object, not null
-     * @throws DateTimeException if unable to make the adjustment
+     * @throws DateTimeException   if unable to make the adjustment
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
@@ -1131,13 +944,13 @@ public final class Instant
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param endExclusive  the end date, exclusive, which is converted to an {@code Instant}, not null
-     * @param unit  the unit to measure the amount in, not null
+     * @param endExclusive the end date, exclusive, which is converted to an {@code Instant}, not null
+     * @param unit         the unit to measure the amount in, not null
      * @return the amount of time between this instant and the end instant
-     * @throws DateTimeException if the amount cannot be calculated, or the end
-     *  temporal cannot be converted to an {@code Instant}
+     * @throws DateTimeException                if the amount cannot be calculated, or the end
+     *                                          temporal cannot be converted to an {@code Instant}
      * @throws UnsupportedTemporalTypeException if the unit is not supported
-     * @throws ArithmeticException if numeric overflow occurs
+     * @throws ArithmeticException              if numeric overflow occurs
      */
     @Override
     public long until(Temporal endExclusive, TemporalUnit unit) {
@@ -1145,14 +958,22 @@ public final class Instant
         if (unit instanceof ChronoUnit) {
             ChronoUnit f = (ChronoUnit) unit;
             switch (f) {
-                case NANOS: return nanosUntil(end);
-                case MICROS: return nanosUntil(end) / 1000;
-                case MILLIS: return Math.subtractExact(end.toEpochMilli(), toEpochMilli());
-                case SECONDS: return secondsUntil(end);
-                case MINUTES: return secondsUntil(end) / SECONDS_PER_MINUTE;
-                case HOURS: return secondsUntil(end) / SECONDS_PER_HOUR;
-                case HALF_DAYS: return secondsUntil(end) / (12 * SECONDS_PER_HOUR);
-                case DAYS: return secondsUntil(end) / (SECONDS_PER_DAY);
+                case NANOS:
+                    return nanosUntil(end);
+                case MICROS:
+                    return nanosUntil(end) / 1000;
+                case MILLIS:
+                    return Math.subtractExact(end.toEpochMilli(), toEpochMilli());
+                case SECONDS:
+                    return secondsUntil(end);
+                case MINUTES:
+                    return secondsUntil(end) / SECONDS_PER_MINUTE;
+                case HOURS:
+                    return secondsUntil(end) / SECONDS_PER_HOUR;
+                case HALF_DAYS:
+                    return secondsUntil(end) / (12 * SECONDS_PER_HOUR);
+                case DAYS:
+                    return secondsUntil(end) / (SECONDS_PER_DAY);
             }
             throw new UnsupportedTemporalTypeException("Unsupported unit: " + unit);
         }
@@ -1177,6 +998,7 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Combines this instant with an offset to create an {@code OffsetDateTime}.
      * <p>
@@ -1187,7 +1009,7 @@ public final class Instant
      * This method is equivalent to
      * {@link OffsetDateTime#ofInstant(Instant, ZoneId) OffsetDateTime.ofInstant(this, offset)}.
      *
-     * @param offset  the offset to combine with, not null
+     * @param offset the offset to combine with, not null
      * @return the offset date-time formed from this instant and the specified offset, not null
      * @throws DateTimeException if the result exceeds the supported range
      */
@@ -1205,7 +1027,7 @@ public final class Instant
      * This method is equivalent to
      * {@link ZonedDateTime#ofInstant(Instant, ZoneId) ZonedDateTime.ofInstant(this, zone)}.
      *
-     * @param zone  the zone to combine with, not null
+     * @param zone the zone to combine with, not null
      * @return the zoned date-time formed from this instant and the specified zone, not null
      * @throws DateTimeException if the result exceeds the supported range
      */
@@ -1214,6 +1036,7 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Converts this instant to the number of milliseconds from the epoch
      * of 1970-01-01T00:00:00Z.
@@ -1230,7 +1053,7 @@ public final class Instant
      */
     public long toEpochMilli() {
         if (seconds < 0 && nanos > 0) {
-            long millis = Math.multiplyExact(seconds+1, 1000);
+            long millis = Math.multiplyExact(seconds + 1, 1000);
             long adjustment = nanos / 1000_000 - 1000;
             return Math.addExact(millis, adjustment);
         } else {
@@ -1240,13 +1063,14 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Compares this instant to the specified instant.
      * <p>
      * The comparison is based on the time-line position of the instants.
      * It is "consistent with equals", as defined by {@link Comparable}.
      *
-     * @param otherInstant  the other instant to compare to, not null
+     * @param otherInstant the other instant to compare to, not null
      * @return the comparator value, negative if less, positive if greater
      * @throws NullPointerException if otherInstant is null
      */
@@ -1264,7 +1088,7 @@ public final class Instant
      * <p>
      * The comparison is based on the time-line position of the instants.
      *
-     * @param otherInstant  the other instant to compare to, not null
+     * @param otherInstant the other instant to compare to, not null
      * @return true if this instant is after the specified instant
      * @throws NullPointerException if otherInstant is null
      */
@@ -1277,7 +1101,7 @@ public final class Instant
      * <p>
      * The comparison is based on the time-line position of the instants.
      *
-     * @param otherInstant  the other instant to compare to, not null
+     * @param otherInstant the other instant to compare to, not null
      * @return true if this instant is before the specified instant
      * @throws NullPointerException if otherInstant is null
      */
@@ -1286,12 +1110,13 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * Checks if this instant is equal to the specified instant.
      * <p>
      * The comparison is based on the time-line position of the instants.
      *
-     * @param otherInstant  the other instant, null returns false
+     * @param otherInstant the other instant, null returns false
      * @return true if the other instant is equal to this one
      */
     @Override
@@ -1302,7 +1127,7 @@ public final class Instant
         if (otherInstant instanceof Instant) {
             Instant other = (Instant) otherInstant;
             return this.seconds == other.seconds &&
-                   this.nanos == other.nanos;
+                    this.nanos == other.nanos;
         }
         return false;
     }
@@ -1318,6 +1143,7 @@ public final class Instant
     }
 
     //-----------------------------------------------------------------------
+
     /**
      * A string representation of this instant using ISO-8601 representation.
      * <p>
@@ -1331,17 +1157,17 @@ public final class Instant
     }
 
     // -----------------------------------------------------------------------
+
     /**
      * Writes the object using a
      * <a href="../../serialized-form.html#java.time.Ser">dedicated serialized form</a>.
-     * @serialData
-     * <pre>
+     *
+     * @return the instance of {@code Ser}, not null
+     * @serialData <pre>
      *  out.writeByte(2);  // identifies an Instant
      *  out.writeLong(seconds);
      *  out.writeInt(nanos);
      * </pre>
-     *
-     * @return the instance of {@code Ser}, not null
      */
     private Object writeReplace() {
         return new Ser(Ser.INSTANT_TYPE, this);

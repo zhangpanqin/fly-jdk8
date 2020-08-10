@@ -1,42 +1,8 @@
-/*
- * Copyright (c) 1997, 2013, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
 package java.net;
 
-
 /**
- * The class PasswordAuthentication is a data holder that is used by
- * Authenticator.  It is simply a repository for a user name and a password.
- *
- * @see Authenticator
- * @see Authenticator#getPasswordAuthentication()
- *
- * @author  Bill Foote
- * @since   1.2
+ * Authenticator
  */
-
 public final class PasswordAuthentication {
 
     private String userName;

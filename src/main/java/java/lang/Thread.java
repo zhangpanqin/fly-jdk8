@@ -183,6 +183,10 @@ public class Thread implements Runnable {
 
     /**
      * 打断当前线程
+     * 给 Thread 绑定一个 Interruptible
+     * SharedSecrets.getJavaLangAccess().blockedOn(thread,(thread1)->{});
+     * 设置线程的打断标记,
+     * 如果线程绑定了 Interruptible,先处理打断逻辑,在调用 Interruptible
      */
     public void interrupt() {
         if (this != Thread.currentThread()) {

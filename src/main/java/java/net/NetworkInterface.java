@@ -55,6 +55,7 @@ public final class NetworkInterface {
     static {
         AccessController.doPrivileged(
             new java.security.PrivilegedAction<Void>() {
+                @Override
                 public Void run() {
                     System.loadLibrary("net");
                     return null;

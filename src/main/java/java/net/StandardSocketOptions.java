@@ -1,190 +1,41 @@
-/*
- * Copyright (c) 2007, 2013, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
 package java.net;
 
-/**
- * Defines the <em>standard</em> socket options.
- *
- * <p> The {@link SocketOption#name name} of each socket option defined by this
- * class is its field name.
- *
- * <p> In this release, the socket options defined here are used by {@link
- * java.nio.channels.NetworkChannel network} channels in the {@link
- * java.nio.channels channels} package.
- *
- * @since 1.7
- */
 
 public final class StandardSocketOptions {
-    private StandardSocketOptions() { }
-
-    // -- SOL_SOCKET --
-
-    /**
-     * Allow transmission of broadcast datagrams.
-     *
-     * <p> The value of this socket option is a {@code Boolean} that represents
-     * whether the option is enabled or disabled. The option is specific to
-     * datagram-oriented sockets sending to {@link Inet4Address IPv4}
-     * broadcast addresses. When the socket option is enabled then the socket
-     * can be used to send <em>broadcast datagrams</em>.
-     *
-     * <p> The initial value of this socket option is {@code FALSE}. The socket
-     * option may be enabled or disabled at any time. Some operating systems may
-     * require that the Java virtual machine be started with implementation
-     * specific privileges to enable this option or send broadcast datagrams.
-     *
-     * @see <a href="http://www.ietf.org/rfc/rfc919.txt">RFC&nbsp;929:
-     * Broadcasting Internet Datagrams</a>
-     * @see DatagramSocket#setBroadcast
-     */
-    public static final SocketOption<Boolean> SO_BROADCAST =
-        new StdSocketOption<Boolean>("SO_BROADCAST", Boolean.class);
+    private StandardSocketOptions() {
+    }
 
     /**
-     * Keep connection alive.
-     *
-     * <p> The value of this socket option is a {@code Boolean} that represents
-     * whether the option is enabled or disabled. When the {@code SO_KEEPALIVE}
-     * option is enabled the operating system may use a <em>keep-alive</em>
-     * mechanism to periodically probe the other end of a connection when the
-     * connection is otherwise idle. The exact semantics of the keep alive
-     * mechanism is system dependent and therefore unspecified.
-     *
-     * <p> The initial value of this socket option is {@code FALSE}. The socket
-     * option may be enabled or disabled at any time.
-     *
-     * @see <a href="http://www.ietf.org/rfc/rfc1122.txt">RFC&nbsp;1122
-     * Requirements for Internet Hosts -- Communication Layers</a>
-     * @see Socket#setKeepAlive
+     * 禁用 Nagle 算法
+     * 不等待数据包合并一起发,来了就发
      */
-    public static final SocketOption<Boolean> SO_KEEPALIVE =
-        new StdSocketOption<Boolean>("SO_KEEPALIVE", Boolean.class);
+    public static final SocketOption<Boolean> TCP_NODELAY = new StdSocketOption<Boolean>("TCP_NODELAY", Boolean.class);
+    /**
+     * 允许广播数据报文
+     */
+
+    public static final SocketOption<Boolean> SO_BROADCAST = new StdSocketOption<Boolean>("SO_BROADCAST", Boolean.class);
 
     /**
-     * The size of the socket send buffer.
-     *
-     * <p> The value of this socket option is an {@code Integer} that is the
-     * size of the socket send buffer in bytes. The socket send buffer is an
-     * output buffer used by the networking implementation. It may need to be
-     * increased for high-volume connections. The value of the socket option is
-     * a <em>hint</em> to the implementation to size the buffer and the actual
-     * size may differ. The socket option can be queried to retrieve the actual
-     * size.
-     *
-     * <p> For datagram-oriented sockets, the size of the send buffer may limit
-     * the size of the datagrams that may be sent by the socket. Whether
-     * datagrams larger than the buffer size are sent or discarded is system
-     * dependent.
-     *
-     * <p> The initial/default size of the socket send buffer and the range of
-     * allowable values is system dependent although a negative size is not
-     * allowed. An attempt to set the socket send buffer to larger than its
-     * maximum size causes it to be set to its maximum size.
-     *
-     * <p> An implementation allows this socket option to be set before the
-     * socket is bound or connected. Whether an implementation allows the
-     * socket send buffer to be changed after the socket is bound is system
-     * dependent.
-     *
-     * @see Socket#setSendBufferSize
+     * 保持连接,系统会发心跳包维持
      */
-    public static final SocketOption<Integer> SO_SNDBUF =
-        new StdSocketOption<Integer>("SO_SNDBUF", Integer.class);
+    public static final SocketOption<Boolean> SO_KEEPALIVE = new StdSocketOption<Boolean>("SO_KEEPALIVE", Boolean.class);
+
+    /**
+     * socket 发送到缓冲区的数据字节数
+     */
+    public static final SocketOption<Integer> SO_SNDBUF = new StdSocketOption<Integer>("SO_SNDBUF", Integer.class);
 
 
     /**
-     * The size of the socket receive buffer.
-     *
-     * <p> The value of this socket option is an {@code Integer} that is the
-     * size of the socket receive buffer in bytes. The socket receive buffer is
-     * an input buffer used by the networking implementation. It may need to be
-     * increased for high-volume connections or decreased to limit the possible
-     * backlog of incoming data. The value of the socket option is a
-     * <em>hint</em> to the implementation to size the buffer and the actual
-     * size may differ.
-     *
-     * <p> For datagram-oriented sockets, the size of the receive buffer may
-     * limit the size of the datagrams that can be received. Whether datagrams
-     * larger than the buffer size can be received is system dependent.
-     * Increasing the socket receive buffer may be important for cases where
-     * datagrams arrive in bursts faster than they can be processed.
-     *
-     * <p> In the case of stream-oriented sockets and the TCP/IP protocol, the
-     * size of the socket receive buffer may be used when advertising the size
-     * of the TCP receive window to the remote peer.
-     *
-     * <p> The initial/default size of the socket receive buffer and the range
-     * of allowable values is system dependent although a negative size is not
-     * allowed. An attempt to set the socket receive buffer to larger than its
-     * maximum size causes it to be set to its maximum size.
-     *
-     * <p> An implementation allows this socket option to be set before the
-     * socket is bound or connected. Whether an implementation allows the
-     * socket receive buffer to be changed after the socket is bound is system
-     * dependent.
-     *
-     * @see <a href="http://www.ietf.org/rfc/rfc1323.txt">RFC&nbsp;1323: TCP
-     * Extensions for High Performance</a>
-     * @see Socket#setReceiveBufferSize
-     * @see ServerSocket#setReceiveBufferSize
+     * 套接字接受缓冲区的字节数据
      */
-    public static final SocketOption<Integer> SO_RCVBUF =
-        new StdSocketOption<Integer>("SO_RCVBUF", Integer.class);
+    public static final SocketOption<Integer> SO_RCVBUF = new StdSocketOption<Integer>("SO_RCVBUF", Integer.class);
 
     /**
-     * Re-use address.
-     *
-     * <p> The value of this socket option is a {@code Boolean} that represents
-     * whether the option is enabled or disabled. The exact semantics of this
-     * socket option are socket type and system dependent.
-     *
-     * <p> In the case of stream-oriented sockets, this socket option will
-     * usually determine whether the socket can be bound to a socket address
-     * when a previous connection involving that socket address is in the
-     * <em>TIME_WAIT</em> state. On implementations where the semantics differ,
-     * and the socket option is not required to be enabled in order to bind the
-     * socket when a previous connection is in this state, then the
-     * implementation may choose to ignore this option.
-     *
-     * <p> For datagram-oriented sockets the socket option is used to allow
-     * multiple programs bind to the same address. This option should be enabled
-     * when the socket is to be used for Internet Protocol (IP) multicasting.
-     *
-     * <p> An implementation allows this socket option to be set before the
-     * socket is bound or connected. Changing the value of this socket option
-     * after the socket is bound has no effect. The default value of this
-     * socket option is system dependent.
-     *
-     * @see <a href="http://www.ietf.org/rfc/rfc793.txt">RFC&nbsp;793: Transmission
-     * Control Protocol</a>
-     * @see ServerSocket#setReuseAddress
+     * 是否可以将 TIME_WAIT 的链接重用
      */
-    public static final SocketOption<Boolean> SO_REUSEADDR =
-        new StdSocketOption<Boolean>("SO_REUSEADDR", Boolean.class);
+    public static final SocketOption<Boolean> SO_REUSEADDR = new StdSocketOption<Boolean>("SO_REUSEADDR", Boolean.class);
 
     /**
      * Linger on close if data is present.
@@ -215,8 +66,7 @@ public final class StandardSocketOptions {
      *
      * @see Socket#setSoLinger
      */
-    public static final SocketOption<Integer> SO_LINGER =
-        new StdSocketOption<Integer>("SO_LINGER", Integer.class);
+    public static final SocketOption<Integer> SO_LINGER = new StdSocketOption<Integer>("SO_LINGER", Integer.class);
 
 
     // -- IPPROTO_IP --
@@ -247,8 +97,7 @@ public final class StandardSocketOptions {
      *
      * @see DatagramSocket#setTrafficClass
      */
-    public static final SocketOption<Integer> IP_TOS =
-        new StdSocketOption<Integer>("IP_TOS", Integer.class);
+    public static final SocketOption<Integer> IP_TOS = new StdSocketOption<Integer>("IP_TOS", Integer.class);
 
     /**
      * The network interface for Internet Protocol (IP) multicast datagrams.
@@ -270,8 +119,7 @@ public final class StandardSocketOptions {
      * @see java.nio.channels.MulticastChannel
      * @see MulticastSocket#setInterface
      */
-    public static final SocketOption<NetworkInterface> IP_MULTICAST_IF =
-        new StdSocketOption<NetworkInterface>("IP_MULTICAST_IF", NetworkInterface.class);
+    public static final SocketOption<NetworkInterface> IP_MULTICAST_IF = new StdSocketOption<NetworkInterface>("IP_MULTICAST_IF", NetworkInterface.class);
 
     /**
      * The <em>time-to-live</em> for Internet Protocol (IP) multicast datagrams.
@@ -297,8 +145,7 @@ public final class StandardSocketOptions {
      * @see java.nio.channels.MulticastChannel
      * @see MulticastSocket#setTimeToLive
      */
-    public static final SocketOption<Integer> IP_MULTICAST_TTL =
-        new StdSocketOption<Integer>("IP_MULTICAST_TTL", Integer.class);
+    public static final SocketOption<Integer> IP_MULTICAST_TTL = new StdSocketOption<Integer>("IP_MULTICAST_TTL", Integer.class);
 
     /**
      * Loopback for Internet Protocol (IP) multicast datagrams.
@@ -320,48 +167,33 @@ public final class StandardSocketOptions {
      * binding the socket is system dependent.
      *
      * @see java.nio.channels.MulticastChannel
-     *  @see MulticastSocket#setLoopbackMode
+     * @see MulticastSocket#setLoopbackMode
      */
-    public static final SocketOption<Boolean> IP_MULTICAST_LOOP =
-        new StdSocketOption<Boolean>("IP_MULTICAST_LOOP", Boolean.class);
-
-
-    // -- IPPROTO_TCP --
-
-    /**
-     * Disable the Nagle algorithm.
-     *
-     * <p> The value of this socket option is a {@code Boolean} that represents
-     * whether the option is enabled or disabled. The socket option is specific to
-     * stream-oriented sockets using the TCP/IP protocol. TCP/IP uses an algorithm
-     * known as <em>The Nagle Algorithm</em> to coalesce short segments and
-     * improve network efficiency.
-     *
-     * <p> The default value of this socket option is {@code FALSE}. The
-     * socket option should only be enabled in cases where it is known that the
-     * coalescing impacts performance. The socket option may be enabled at any
-     * time. In other words, the Nagle Algorithm can be disabled. Once the option
-     * is enabled, it is system dependent whether it can be subsequently
-     * disabled. If it cannot, then invoking the {@code setOption} method to
-     * disable the option has no effect.
-     *
-     * @see <a href="http://www.ietf.org/rfc/rfc1122.txt">RFC&nbsp;1122:
-     * Requirements for Internet Hosts -- Communication Layers</a>
-     * @see Socket#setTcpNoDelay
-     */
-    public static final SocketOption<Boolean> TCP_NODELAY =
-        new StdSocketOption<Boolean>("TCP_NODELAY", Boolean.class);
+    public static final SocketOption<Boolean> IP_MULTICAST_LOOP = new StdSocketOption<Boolean>("IP_MULTICAST_LOOP", Boolean.class);
 
 
     private static class StdSocketOption<T> implements SocketOption<T> {
         private final String name;
         private final Class<T> type;
+
         StdSocketOption(String name, Class<T> type) {
             this.name = name;
             this.type = type;
         }
-        @Override public String name() { return name; }
-        @Override public Class<T> type() { return type; }
-        @Override public String toString() { return name; }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public Class<T> type() {
+            return type;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 }
