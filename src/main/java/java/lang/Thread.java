@@ -238,6 +238,8 @@ public class Thread implements Runnable {
     /**
      * 阻塞等待线程的执行完成
      * 调用 wait 方法实现
+     * 当线程死亡的时候,this.notifyAll 会被调用.
+     * 建议不要在 Thread 实例上使用 wait notify notifyAll 方法
      */
     public final synchronized void join(long millis)
             throws InterruptedException {
@@ -311,7 +313,7 @@ public class Thread implements Runnable {
      * 线程的状态:
      * NEW: 线程初始化好,未调用 start 方法
      * RUNNABLE: 线程在 java 虚拟机中运行,也可能在等待 cpu 资源
-     * BLOCKED: 等待监视器锁.Object.wait 方法会让线程进入此状态
+     * BLOCKED: 进入同步代码块时,等待监视器锁
      * WAITING: 等待被唤醒.Object.wait();Thread.join();LockSupport.park()
      * TIMED_WAITING: 等待一段时间后自动醒来.
      * Thread.sleep;Object.wait(long);Thread.join(long);LockSupport.parkNanos;LockSupport.parkUntil
