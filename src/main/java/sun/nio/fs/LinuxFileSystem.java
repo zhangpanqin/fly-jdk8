@@ -28,7 +28,6 @@ package sun.nio.fs;
 import java.nio.file.*;
 import java.io.IOException;
 import java.util.*;
-import static sun.nio.fs.LinuxNativeDispatcher.*;
 
 /**
  * Linux implementation of FileSystem
