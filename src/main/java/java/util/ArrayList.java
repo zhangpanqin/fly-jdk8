@@ -11,8 +11,7 @@ import java.util.function.UnaryOperator;
  * set,get,add(添加某个元素,当再具体的索引位置添加时,相当于插入)
  * remove 移除元素,移除之后的元素会向前填充
  */
-public class ArrayList<E> extends AbstractList<E>
-        implements List<E>, RandomAccess, Cloneable, java.io.Serializable {
+public class ArrayList<E> extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, java.io.Serializable {
     private static final long serialVersionUID = 8683452581122892189L;
 
     /**
