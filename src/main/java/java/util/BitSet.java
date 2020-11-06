@@ -1,28 +1,3 @@
-/*
- * Copyright (c) 1995, 2014, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
 package java.util;
 
 import java.io.*;
@@ -32,42 +7,8 @@ import java.nio.LongBuffer;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
-/**
- * This class implements a vector of bits that grows as needed. Each
- * component of the bit set has a {@code boolean} value. The
- * bits of a {@code BitSet} are indexed by nonnegative integers.
- * Individual indexed bits can be examined, set, or cleared. One
- * {@code BitSet} may be used to modify the contents of another
- * {@code BitSet} through logical AND, logical inclusive OR, and
- * logical exclusive OR operations.
- *
- * <p>By default, all bits in the set initially have the value
- * {@code false}.
- *
- * <p>Every bit set has a current size, which is the number of bits
- * of space currently in use by the bit set. Note that the size is
- * related to the implementation of a bit set, so it may change with
- * implementation. The length of a bit set relates to logical length
- * of a bit set and is defined independently of implementation.
- *
- * <p>Unless otherwise noted, passing a null parameter to any of the
- * methods in a {@code BitSet} will result in a
- * {@code NullPointerException}.
- *
- * <p>A {@code BitSet} is not safe for multithreaded use without
- * external synchronization.
- *
- * @author  Arthur van Hoff
- * @author  Michael McCloskey
- * @author  Martin Buchholz
- * @since   JDK1.0
- */
 public class BitSet implements Cloneable, Serializable {
-    /*
-     * BitSets are packed into arrays of "words."  Currently a word is
-     * a long, which consists of 64 bits, requiring 6 address bits.
-     * The choice of word size is determined purely by performance concerns.
-     */
+
     private final static int ADDRESS_BITS_PER_WORD = 6;
     private final static int BITS_PER_WORD = 1 << ADDRESS_BITS_PER_WORD;
     private final static int BIT_INDEX_MASK = BITS_PER_WORD - 1;

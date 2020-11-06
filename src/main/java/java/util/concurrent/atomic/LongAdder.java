@@ -1,71 +1,14 @@
-/*
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
-/*
- *
- *
- *
- *
- *
- * Written by Doug Lea with assistance from members of JCP JSR-166
- * Expert Group and released to the public domain, as explained at
- * http://creativecommons.org/publicdomain/zero/1.0/
- */
-
 package java.util.concurrent.atomic;
+
 import java.io.Serializable;
 
 /**
- * One or more variables that together maintain an initially zero
- * {@code long} sum.  When updates (method {@link #add}) are contended
- * across threads, the set of variables may grow dynamically to reduce
- * contention. Method {@link #sum} (or, equivalently, {@link
- * #longValue}) returns the current total combined across the
- * variables maintaining the sum.
- *
- * <p>This class is usually preferable to {@link AtomicLong} when
- * multiple threads update a common sum that is used for purposes such
- * as collecting statistics, not for fine-grained synchronization
- * control.  Under low update contention, the two classes have similar
- * characteristics. But under high contention, expected throughput of
- * this class is significantly higher, at the expense of higher space
- * consumption.
- *
- * <p>LongAdders can be used with a {@link
- * java.util.concurrent.ConcurrentHashMap} to maintain a scalable
- * frequency map (a form of histogram or multiset). For example, to
- * add a count to a {@code ConcurrentHashMap<String,LongAdder> freqs},
- * initializing if not already present, you can use {@code
- * freqs.computeIfAbsent(k -> new LongAdder()).increment();}
- *
- * <p>This class extends {@link Number}, but does <em>not</em> define
- * methods such as {@code equals}, {@code hashCode} and {@code
- * compareTo} because instances are expected to be mutated, and so are
- * not useful as collection keys.
- *
- * @since 1.8
  * @author Doug Lea
+ * @since 1.8
+ * 核心思想是用一个数组保存不同线程操作的数,各个线程操作自己对应索引的数字.
+ * 这个数组中数字的和就是当前 long 的大小
+ * <p>
+ * 由于获取的数字不是精确的,使用场景为 统计计数的场景,比如 qps
  */
 public class LongAdder extends Striped64 implements Serializable {
     private static final long serialVersionUID = 7249069246863182397L;
@@ -76,19 +19,24 @@ public class LongAdder extends Striped64 implements Serializable {
     public LongAdder() {
     }
 
+
     /**
      * Adds the given value.
      *
      * @param x the value to add
      */
     public void add(long x) {
-        Cell[] as; long b, v; int m; Cell a;
+        Cell[] as;
+        long b, v;
+        // 当前 as 的最大索引下标
+        int m;
+        Cell a;
+        // Cell 并不直接初始化,当再基础值上 cas 失败时,才会创建 cell
         if ((as = cells) != null || !casBase(b = base, b + x)) {
             boolean uncontended = true;
-            if (as == null || (m = as.length - 1) < 0 ||
-                (a = as[getProbe() & m]) == null ||
-                !(uncontended = a.cas(v = a.value, v + x)))
+            if (as == null || (m = as.length - 1) < 0 || (a = as[getProbe() & m]) == null || !(uncontended = a.cas(v = a.value, v + x))) {
                 longAccumulate(x, null, uncontended);
+            }
         }
     }
 
@@ -107,21 +55,19 @@ public class LongAdder extends Striped64 implements Serializable {
     }
 
     /**
-     * Returns the current sum.  The returned value is <em>NOT</em> an
-     * atomic snapshot; invocation in the absence of concurrent
-     * updates returns an accurate result, but concurrent updates that
-     * occur while the sum is being calculated might not be
-     * incorporated.
+     * 并发修改的情况下,无法获得准确的值
      *
      * @return the sum
      */
     public long sum() {
-        Cell[] as = cells; Cell a;
+        Cell[] as = cells;
+        Cell a;
         long sum = base;
         if (as != null) {
             for (int i = 0; i < as.length; ++i) {
-                if ((a = as[i]) != null)
+                if ((a = as[i]) != null) {
                     sum += a.value;
+                }
             }
         }
         return sum;
@@ -135,12 +81,14 @@ public class LongAdder extends Striped64 implements Serializable {
      * known that no threads are concurrently updating.
      */
     public void reset() {
-        Cell[] as = cells; Cell a;
+        Cell[] as = cells;
+        Cell a;
         base = 0L;
         if (as != null) {
             for (int i = 0; i < as.length; ++i) {
-                if ((a = as[i]) != null)
+                if ((a = as[i]) != null) {
                     a.value = 0L;
+                }
             }
         }
     }
@@ -156,7 +104,8 @@ public class LongAdder extends Striped64 implements Serializable {
      * @return the sum
      */
     public long sumThenReset() {
-        Cell[] as = cells; Cell a;
+        Cell[] as = cells;
+        Cell a;
         long sum = base;
         base = 0L;
         if (as != null) {
@@ -170,99 +119,23 @@ public class LongAdder extends Striped64 implements Serializable {
         return sum;
     }
 
-    /**
-     * Returns the String representation of the {@link #sum}.
-     * @return the String representation of the {@link #sum}
-     */
-    public String toString() {
-        return Long.toString(sum());
-    }
-
-    /**
-     * Equivalent to {@link #sum}.
-     *
-     * @return the sum
-     */
-    public long longValue() {
-        return sum();
-    }
-
-    /**
-     * Returns the {@link #sum} as an {@code int} after a narrowing
-     * primitive conversion.
-     */
+    @Override
     public int intValue() {
-        return (int)sum();
+        return 0;
     }
 
-    /**
-     * Returns the {@link #sum} as a {@code float}
-     * after a widening primitive conversion.
-     */
+    @Override
+    public long longValue() {
+        return 0;
+    }
+
+    @Override
     public float floatValue() {
-        return (float)sum();
+        return 0;
     }
 
-    /**
-     * Returns the {@link #sum} as a {@code double} after a widening
-     * primitive conversion.
-     */
+    @Override
     public double doubleValue() {
-        return (double)sum();
+        return 0;
     }
-
-    /**
-     * Serialization proxy, used to avoid reference to the non-public
-     * Striped64 superclass in serialized forms.
-     * @serial include
-     */
-    private static class SerializationProxy implements Serializable {
-        private static final long serialVersionUID = 7249069246863182397L;
-
-        /**
-         * The current value returned by sum().
-         * @serial
-         */
-        private final long value;
-
-        SerializationProxy(LongAdder a) {
-            value = a.sum();
-        }
-
-        /**
-         * Return a {@code LongAdder} object with initial state
-         * held by this proxy.
-         *
-         * @return a {@code LongAdder} object with initial state
-         * held by this proxy.
-         */
-        private Object readResolve() {
-            LongAdder a = new LongAdder();
-            a.base = value;
-            return a;
-        }
-    }
-
-    /**
-     * Returns a
-     * <a href="../../../../serialized-form.html#java.util.concurrent.atomic.LongAdder.SerializationProxy">
-     * SerializationProxy</a>
-     * representing the state of this instance.
-     *
-     * @return a {@link SerializationProxy}
-     * representing the state of this instance
-     */
-    private Object writeReplace() {
-        return new SerializationProxy(this);
-    }
-
-    /**
-     * @param s the stream
-     * @throws java.io.InvalidObjectException always
-     */
-    private void readObject(java.io.ObjectInputStream s)
-        throws java.io.InvalidObjectException {
-        throw new java.io.InvalidObjectException("Proxy required");
-    }
-
 }
