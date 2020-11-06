@@ -9,6 +9,8 @@ import java.util.concurrent.TimeUnit;
  * StampedLock 读读不互斥,读写不互斥,写写互斥.
  *
  * 三种锁并发度依次提高.
+ *
+ * state 初始值不设为 0 .是为了乐观锁的实现
  */
 
 public class StampedLock implements java.io.Serializable {
@@ -21,6 +23,7 @@ public class StampedLock implements java.io.Serializable {
 
     /**
      * Maximum number of retries before enqueuing on acquisition
+     * 进入阻塞队列前,锁的自旋次数
      */
     private static final int SPINS = (NCPU > 1) ? 1 << 6 : 0;
 
@@ -53,6 +56,7 @@ public class StampedLock implements java.io.Serializable {
     private static final long SBITS = ~RBITS; // note overlap with ABITS
 
     // Initial value for lock state; avoid failure value zero
+    // 初始值为 1 0000 0000 二进制标识
     private static final long ORIGIN = WBIT << 1;
 
     // Special value from cancelled acquire methods so caller can throw IE
@@ -99,6 +103,8 @@ public class StampedLock implements java.io.Serializable {
 
     /**
      * Lock sequence/state
+     * state 用最低的 8 位表示读写状态.第八位表示写锁,最低七位表示读锁.写锁只有一位,所以写写是不可重入的.
+     *
      */
     private transient volatile long state;
     /**
@@ -278,8 +284,12 @@ public class StampedLock implements java.io.Serializable {
      *
      * @return a stamp, or zero if exclusively locked
      */
+    /**
+     * 如果已经有写锁了,那么 返回 0
+     */
     public long tryOptimisticRead() {
         long s;
+        //  state & WBIT !=0 说明有人
         return (((s = state) & WBIT) == 0L) ? (s & SBITS) : 0L;
     }
 
@@ -295,6 +305,7 @@ public class StampedLock implements java.io.Serializable {
      * @return {@code true} if the lock has not been exclusively acquired
      * since issuance of the given stamp; else false
      */
+    // stamp 为 0 时,返回 false.也即是有写锁时
     public boolean validate(long stamp) {
         U.loadFence();
         return (stamp & SBITS) == (state & SBITS);
