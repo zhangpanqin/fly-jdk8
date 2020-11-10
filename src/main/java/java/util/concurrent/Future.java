@@ -15,12 +15,15 @@ package java.util.concurrent;
  */
 public interface Future<V> {
 
-
     /**
-     * 尝试取消执行的任务,如果任务已经完成,这个取消会失败,返回 false;
+     * 尝试取消这个任务的执行.
+     * 如果任务执行完成之后,调用 cancel 返回 false.
+     * 如果任务已经被取消了,调用 cancel 也会返回 false
+     *
      * 如果任务已经执行了, mayInterruptIfRunning 标志是否中断执行任务的线程.
-     * mayInterruptIfRunning 为 true 时会中断任务执行,为 false 时不中断任务执行,只改变 Future 的状态
-     * <p>
+     * mayInterruptIfRunning 为 true 会触发线程的中断(当线程睡眠,会抛出异常 InterruptedException),
+     * 为 false 时不中断任务执行,只改变 Future 的状态
+     *
      * 调用了 cancel 方法,调用 get 方法会抛出异常
      */
     boolean cancel(boolean mayInterruptIfRunning);
