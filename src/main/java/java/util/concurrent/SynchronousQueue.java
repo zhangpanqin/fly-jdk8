@@ -13,6 +13,7 @@ import java.util.Spliterators;
  * 如果生產者和消費者兩者中只有一個操作隊列（put或take），則會阻塞；
  * 只有當生產者調用put且消費者調用take，形成一條同步的連接，才會繼續往下執行。
  * 從最終效果看，對象從生產者轉移到消費者線程，相當於跨線程同步執行。
+ * @author Administrator
  */
 public class SynchronousQueue<E> extends AbstractQueue<E> implements BlockingQueue<E>, java.io.Serializable {
     private static final long serialVersionUID = -3223113410248163686L;
