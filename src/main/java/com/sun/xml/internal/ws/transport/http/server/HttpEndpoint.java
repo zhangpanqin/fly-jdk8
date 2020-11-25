@@ -32,7 +32,6 @@ import com.sun.xml.internal.ws.server.ServerRtException;
 import com.sun.xml.internal.ws.resources.ServerMessages;
 
 import javax.xml.ws.EndpointReference;
-import java.util.concurrent.Executor;
 import java.net.MalformedURLException;
 import java.net.URL;
 

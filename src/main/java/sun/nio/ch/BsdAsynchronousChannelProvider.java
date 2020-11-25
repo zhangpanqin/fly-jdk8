@@ -27,7 +27,6 @@ package sun.nio.ch;
 
 import java.nio.channels.*;
 import java.nio.channels.spi.AsynchronousChannelProvider;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.io.IOException;
 

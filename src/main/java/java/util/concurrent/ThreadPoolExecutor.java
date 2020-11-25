@@ -20,6 +20,12 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
 
     /**
      * 表示线程池的状态和线程池中活动线程数量的线程
+     * 高 3 位表示线程池状态，低 29 位表示线程池中任务数量
+     * RUNNING        -- 对应的高3位值是111。-536870912
+     * SHUTDOWN       -- 对应的高3位值是000。0
+     * STOP           -- 对应的高3位值是001。536870912
+     * TIDYING        -- 对应的高3位值是010。1073741824
+     * TERMINATED     -- 对应的高3位值是011。1610612736
      */
     private final AtomicInteger ctl = new AtomicInteger(ctlOf(RUNNING, 0));
 
@@ -61,7 +67,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
     private static final int TIDYING = 2 << COUNT_BITS;
 
     /**
-     * 线程池调用了 terminated,资源已经释放完
+     * // 可以接受新的任务，也可以处理阻塞队列里的任务
      * 前三位为 011
      */
     private static final int TERMINATED = 3 << COUNT_BITS;
@@ -740,15 +746,21 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
     }
 
     /**
-     * 执行任务
+     * 1.核心线程数量没有达到，创建核心线程数去执行任务
+     * 2.核心线程数达到了，将任务添加到队列中
+     * 3.核心线程数达到了，任务队列满了，线程数量没有达到最大线程数量，创建新的线程去执行任务
      */
     @Override
     public void execute(Runnable command) {
         if (command == null) {
             throw new NullPointerException();
         }
+        /**
+         * 获取任务数量和线程池状态的值
+         */
         int c = ctl.get();
         /**
+         * 工作线程数量小于核心线程数量，创建新的线程
          * 线程池中线程数量少于核心线程数量
          * 开启新的线程执行任务
          */
@@ -759,18 +771,25 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             c = ctl.get();
         }
         /**
-         * 线程池中,线程数量大于核心线程数.任务添加至队列中去
+         * 如果线程池状态为 RUNNING ，将任务插入到队列中去
          */
         if (isRunning(c) && workQueue.offer(command)) {
             int recheck = ctl.get();
-            // 再次检查线程池状态,如果线程关闭,从队列中移除这个任务
+            /**
+             * 二次检查线程池的状态，如果线程池不是 RUNNING 状态，从队列中删除任务，并执行拒绝策略
+             */
             if (!isRunning(recheck) && remove(command)) {
                 reject(command);
-
-                // 如果线程池在运行状态,但是没有工作进程.添加一个工作线程
             } else if (workerCountOf(recheck) == 0) {
+                /**
+                 * 如果工作线程数量为 0 ，则创建一个非核心线程去执行
+                 */
                 addWorker(null, false);
             }
+
+            /**
+             * 核心线程达到，队列也满了，创建非核心线程去执行任务
+             */
         } else if (!addWorker(command, false)) {
             reject(command);
         }

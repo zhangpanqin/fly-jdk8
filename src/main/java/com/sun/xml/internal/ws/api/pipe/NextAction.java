@@ -26,7 +26,6 @@
 package com.sun.xml.internal.ws.api.pipe;
 
 import com.sun.xml.internal.ws.api.message.Packet;
-import java.util.concurrent.Executor;
 
 /**
  * Indicates what shall happen after {@link Tube#processRequest(Packet)} or

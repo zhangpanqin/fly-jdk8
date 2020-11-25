@@ -67,7 +67,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executor;
 
 /**
  * Root object that hosts the {@link Packet} processing code

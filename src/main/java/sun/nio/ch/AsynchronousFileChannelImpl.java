@@ -27,7 +27,6 @@ package sun.nio.ch;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.*;
 import java.io.FileDescriptor;

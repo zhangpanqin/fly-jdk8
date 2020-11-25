@@ -98,7 +98,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 
 import static com.sun.xml.internal.ws.util.xml.XmlUtil.createDefaultCatalogResolver;

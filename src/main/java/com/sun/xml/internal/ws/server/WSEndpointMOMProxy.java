@@ -52,7 +52,6 @@ import java.lang.reflect.AnnotatedElement;
 import java.util.List;
 import java.util.ResourceBundle;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import javax.xml.namespace.QName;
 import javax.xml.ws.EndpointReference;
 import org.w3c.dom.Element;
