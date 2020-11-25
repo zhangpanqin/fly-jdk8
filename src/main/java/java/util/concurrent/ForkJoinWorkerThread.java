@@ -5,16 +5,19 @@ import java.security.ProtectionDomain;
 
 /**
  * 执行 ForkJoinTask 的线程
+ * （1）空闲状态（放在Treiber Stack里面）。
+ * （2）活跃状态（正在执行某个ForkJoinTask，未阻塞）。
+ *  (3）阻塞状态（正在执行某个ForkJoinTask，但阻塞了，于是调用join，等待另外一个任务的结果返回）。
+ *
  */
 public class ForkJoinWorkerThread extends Thread {
     /**
-     * 当前线程工作的线程池
+     * 当前线程所在的线程池
      */
     final ForkJoinPool pool;
     /**
-     *
+     * 当前线程池的队列
      */
-
     final ForkJoinPool.WorkQueue workQueue;
 
     protected ForkJoinWorkerThread(ForkJoinPool pool) {

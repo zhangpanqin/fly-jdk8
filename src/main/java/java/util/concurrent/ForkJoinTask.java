@@ -1,16 +1,21 @@
 package java.util.concurrent;
 
 import java.io.Serializable;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.List;
 import java.util.RandomAccess;
-import java.lang.ref.WeakReference;
-import java.lang.ref.ReferenceQueue;
 import java.util.concurrent.locks.ReentrantLock;
-import java.lang.reflect.Constructor;
 
+/**
+ * 三个子类
+ * 1.CountedCompleter
+ * 2.RecursiveTask
+ * 3.RecursiveAction
+ */
 public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
-
 
 
     /**
@@ -30,7 +35,7 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
 
     /**
      * @param completion one of NORMAL, CANCELLED, EXCEPTIONAL
-     * 标记任务状态为完成，并唤醒在次任务对象上等待的线程
+     *                   标记任务状态为完成，并唤醒在次任务对象上等待的线程
      */
 
     private int setCompletion(int completion) {
@@ -427,27 +432,16 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
     }
 
     // public methods
-
     /**
-     * Arranges to asynchronously execute this task in the pool the
-     * current task is running in, if applicable, or using the {@link
-     * ForkJoinPool#commonPool()} if not {@link #inForkJoinPool}.  While
-     * it is not necessarily enforced, it is a usage error to fork a
-     * task more than once unless it has completed and been
-     * reinitialized.  Subsequent modifications to the state of this
-     * task or any data it operates on are not necessarily
-     * consistently observable by any thread other than the one
-     * executing it unless preceded by a call to {@link #join} or
-     * related methods, or a call to {@link #isDone} returning {@code
-     * true}.
-     *
-     * @return {@code this}, to simplify usage
+     * 将任务放入到当前线程的工作队列中去
      */
     public final ForkJoinTask<V> fork() {
         Thread t;
-        if ((t = Thread.currentThread()) instanceof ForkJoinWorkerThread)
+        if ((t = Thread.currentThread()) instanceof ForkJoinWorkerThread) {
             ((ForkJoinWorkerThread) t).workQueue.push(this);
-        else ForkJoinPool.common.externalPush(this);
+        } else {
+            ForkJoinPool.common.externalPush(this);
+        }
         return this;
     }
 
@@ -464,7 +458,9 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
      */
     public final V join() {
         int s;
-        if ((s = doJoin() & DONE_MASK) != NORMAL) reportException(s);
+        if ((s = doJoin() & DONE_MASK) != NORMAL) {
+            reportException(s);
+        }
         return getRawResult();
     }
 
@@ -1013,7 +1009,9 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
      */
     public final short setForkJoinTaskTag(short tag) {
         for (int s; ; ) {
-            if (U.compareAndSwapInt(this, STATUS, s = status, (s & ~SMASK) | (tag & SMASK))) return (short) s;
+            if (U.compareAndSwapInt(this, STATUS, s = status, (s & ~SMASK) | (tag & SMASK))) {
+                return (short) s;
+            }
         }
     }
 
@@ -1033,39 +1031,45 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
      */
     public final boolean compareAndSetForkJoinTaskTag(short e, short tag) {
         for (int s; ; ) {
-            if ((short) (s = status) != e) return false;
-            if (U.compareAndSwapInt(this, STATUS, s, (s & ~SMASK) | (tag & SMASK))) return true;
+            if ((short) (s = status) != e) {
+                return false;
+            }
+            if (U.compareAndSwapInt(this, STATUS, s, (s & ~SMASK) | (tag & SMASK))) {
+                return true;
+            }
         }
     }
 
-    /**
-     * Adaptor for Runnables. This implements RunnableFuture
-     * to be compliant with AbstractExecutorService constraints
-     * when used in ForkJoinPool.
-     */
+
     static final class AdaptedRunnable<T> extends ForkJoinTask<T> implements RunnableFuture<T> {
         final Runnable runnable;
         T result;
 
         AdaptedRunnable(Runnable runnable, T result) {
-            if (runnable == null) throw new NullPointerException();
+            if (runnable == null) {
+                throw new NullPointerException();
+            }
             this.runnable = runnable;
             this.result = result; // OK to set this even before completion
         }
 
+        @Override
         public final T getRawResult() {
             return result;
         }
 
+        @Override
         public final void setRawResult(T v) {
             result = v;
         }
 
+        @Override
         public final boolean exec() {
             runnable.run();
             return true;
         }
 
+        @Override
         public final void run() {
             invoke();
         }
@@ -1073,29 +1077,33 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
         private static final long serialVersionUID = 5232453952276885070L;
     }
 
-    /**
-     * Adaptor for Runnables without results
-     */
+
     static final class AdaptedRunnableAction extends ForkJoinTask<Void> implements RunnableFuture<Void> {
         final Runnable runnable;
 
         AdaptedRunnableAction(Runnable runnable) {
-            if (runnable == null) throw new NullPointerException();
+            if (runnable == null) {
+                throw new NullPointerException();
+            }
             this.runnable = runnable;
         }
 
+        @Override
         public final Void getRawResult() {
             return null;
         }
 
+        @Override
         public final void setRawResult(Void v) {
         }
 
+        @Override
         public final boolean exec() {
             runnable.run();
             return true;
         }
 
+        @Override
         public final void run() {
             invoke();
         }
@@ -1103,56 +1111,62 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
         private static final long serialVersionUID = 5232453952276885070L;
     }
 
-    /**
-     * Adaptor for Runnables in which failure forces worker exception
-     */
+
     static final class RunnableExecuteAction extends ForkJoinTask<Void> {
         final Runnable runnable;
 
         RunnableExecuteAction(Runnable runnable) {
-            if (runnable == null) throw new NullPointerException();
+            if (runnable == null) {
+                throw new NullPointerException();
+            }
             this.runnable = runnable;
         }
 
+        @Override
         public final Void getRawResult() {
             return null;
         }
 
+        @Override
         public final void setRawResult(Void v) {
         }
 
+        @Override
         public final boolean exec() {
             runnable.run();
             return true;
         }
 
+        @Override
         void internalPropagateException(Throwable ex) {
-            rethrow(ex); // rethrow outside exec() catches.
+            rethrow(ex);
         }
 
         private static final long serialVersionUID = 5232453952276885070L;
     }
 
-    /**
-     * Adaptor for Callables
-     */
     static final class AdaptedCallable<T> extends ForkJoinTask<T> implements RunnableFuture<T> {
         final Callable<? extends T> callable;
         T result;
 
         AdaptedCallable(Callable<? extends T> callable) {
-            if (callable == null) throw new NullPointerException();
+            if (callable == null) {
+                throw new NullPointerException();
+            }
             this.callable = callable;
         }
 
+        @Override
         public final T getRawResult() {
             return result;
         }
 
+        @Override
         public final void setRawResult(T v) {
             result = v;
         }
 
+        @Override
         public final boolean exec() {
             try {
                 result = callable.call();
@@ -1166,6 +1180,7 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
             }
         }
 
+        @Override
         public final void run() {
             invoke();
         }
@@ -1173,81 +1188,31 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
         private static final long serialVersionUID = 2838392045355241008L;
     }
 
-    /**
-     * Returns a new {@code ForkJoinTask} that performs the {@code run}
-     * method of the given {@code Runnable} as its action, and returns
-     * a null result upon {@link #join}.
-     *
-     * @param runnable the runnable action
-     * @return the task
-     */
+
     public static ForkJoinTask<?> adapt(Runnable runnable) {
         return new AdaptedRunnableAction(runnable);
     }
 
-    /**
-     * Returns a new {@code ForkJoinTask} that performs the {@code run}
-     * method of the given {@code Runnable} as its action, and returns
-     * the given result upon {@link #join}.
-     *
-     * @param runnable the runnable action
-     * @param result   the result upon completion
-     * @param <T>      the type of the result
-     * @return the task
-     */
+
     public static <T> ForkJoinTask<T> adapt(Runnable runnable, T result) {
         return new AdaptedRunnable<T>(runnable, result);
     }
 
-    /**
-     * Returns a new {@code ForkJoinTask} that performs the {@code call}
-     * method of the given {@code Callable} as its action, and returns
-     * its result upon {@link #join}, translating any checked exceptions
-     * encountered into {@code RuntimeException}.
-     *
-     * @param callable the callable action
-     * @param <T>      the type of the callable's result
-     * @return the task
-     */
+
     public static <T> ForkJoinTask<T> adapt(Callable<? extends T> callable) {
         return new AdaptedCallable<T>(callable);
     }
 
+
+
+
+
+
     // Serialization support
-
     private static final long serialVersionUID = -7721805057305804111L;
-
-    /**
-     * Saves this task to a stream (that is, serializes it).
-     *
-     * @param s the stream
-     * @throws java.io.IOException if an I/O error occurs
-     * @serialData the current run status and the exception thrown
-     * during execution, or {@code null} if none
-     */
-    private void writeObject(java.io.ObjectOutputStream s) throws java.io.IOException {
-        s.defaultWriteObject();
-        s.writeObject(getException());
-    }
-
-    /**
-     * Reconstitutes this task from a stream (that is, deserializes it).
-     *
-     * @param s the stream
-     * @throws ClassNotFoundException if the class of a serialized object
-     *                                could not be found
-     * @throws java.io.IOException    if an I/O error occurs
-     */
-    private void readObject(java.io.ObjectInputStream s) throws java.io.IOException, ClassNotFoundException {
-        s.defaultReadObject();
-        Object ex = s.readObject();
-        if (ex != null) setExceptionalCompletion((Throwable) ex);
-    }
-
     // Unsafe mechanics
     private static final sun.misc.Unsafe U;
     private static final long STATUS;
-
     static {
         exceptionTableLock = new ReentrantLock();
         exceptionTableRefQueue = new ReferenceQueue<Object>();
