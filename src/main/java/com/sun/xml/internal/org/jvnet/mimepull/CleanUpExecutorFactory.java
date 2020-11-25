@@ -25,8 +25,6 @@
 
 package com.sun.xml.internal.org.jvnet.mimepull;
 
-import java.util.concurrent.Executor;
-
 public abstract class CleanUpExecutorFactory {
     private static final String DEFAULT_PROPERTY_NAME = CleanUpExecutorFactory.class
             .getName();

@@ -30,11 +30,9 @@ import java.nio.file.attribute.*;
 import java.nio.file.spi.FileTypeDetector;
 import java.nio.channels.*;
 import java.net.URI;
-import java.util.concurrent.ExecutorService;
 import java.io.IOException;
 import java.io.FilePermission;
 import java.util.*;
-import java.security.AccessController;
 
 import sun.nio.ch.ThreadPool;
 import sun.security.util.SecurityConstants;

@@ -25,8 +25,6 @@
 
 package com.sun.xml.internal.ws.api.server;
 
-import java.util.concurrent.Executor;
-
 /**
  * ContainerResolver based on {@link ThreadLocal}.
  * <p>

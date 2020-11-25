@@ -34,7 +34,6 @@ import com.sun.xml.internal.ws.transport.http.WSHTTPConnection;
 import javax.xml.ws.spi.http.HttpHandler;
 import javax.xml.ws.spi.http.HttpExchange;
 import java.io.IOException;
-import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 

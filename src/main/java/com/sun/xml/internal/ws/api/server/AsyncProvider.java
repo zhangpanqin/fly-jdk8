@@ -29,7 +29,6 @@ import com.sun.istack.internal.NotNull;
 
 import javax.xml.ws.Provider;
 import javax.xml.ws.WebServiceContext;
-import java.util.concurrent.Executor;
 
 /**
  * Asynchronous version of {@link Provider}.
