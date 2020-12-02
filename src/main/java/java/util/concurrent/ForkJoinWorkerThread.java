@@ -16,12 +16,11 @@ public class ForkJoinWorkerThread extends Thread {
      */
     final ForkJoinPool pool;
     /**
-     * 当前线程池的队列
+     * 当前线程的队列
      */
     final ForkJoinPool.WorkQueue workQueue;
 
     protected ForkJoinWorkerThread(ForkJoinPool pool) {
-        // Use a placeholder until a useful name can be set in registerWorker
         super("aForkJoinWorkerThread");
         this.pool = pool;
         this.workQueue = pool.registerWorker(this);
@@ -114,12 +113,6 @@ public class ForkJoinWorkerThread extends Thread {
             throw new Error(e);
         }
     }
-
-    /**
-     * A worker thread that has no permissions, is not a member of any
-     * user-defined ThreadGroup, and erases all ThreadLocals after
-     * running each top-level task.
-     */
     static final class InnocuousForkJoinWorkerThread extends ForkJoinWorkerThread {
         /**
          * The ThreadGroup for all InnocuousForkJoinWorkerThreads
