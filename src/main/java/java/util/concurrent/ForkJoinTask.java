@@ -70,7 +70,9 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
             } catch (Throwable rex) {
                 return setExceptionalCompletion(rex);
             }
-            if (completed) s = setCompletion(NORMAL);
+            if (completed) {
+                s = setCompletion(NORMAL);
+            }
         }
         return s;
     }
@@ -86,11 +88,14 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
         if ((s = status) >= 0 && // force completer to issue notify
                 U.compareAndSwapInt(this, STATUS, s, s | SIGNAL)) {
             synchronized (this) {
-                if (status >= 0) try {
-                    wait(timeout);
-                } catch (InterruptedException ie) {
+                if (status >= 0) {
+                    try {
+                        wait(timeout);
+                    } catch (InterruptedException ie) {
+                    }
+                } else {
+                    notifyAll();
                 }
-                else notifyAll();
             }
         }
     }
@@ -114,11 +119,15 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
                             } catch (InterruptedException ie) {
                                 interrupted = true;
                             }
-                        } else notifyAll();
+                        } else {
+                            notifyAll();
+                        }
                     }
                 }
             } while ((s = status) >= 0);
-            if (interrupted) Thread.currentThread().interrupt();
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
         return s;
     }
@@ -128,13 +137,18 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
      */
     private int externalInterruptibleAwaitDone() throws InterruptedException {
         int s;
-        if (Thread.interrupted()) throw new InterruptedException();
+        if (Thread.interrupted()) {
+            throw new InterruptedException();
+        }
         if ((s = status) >= 0 && (s = ((this instanceof CountedCompleter) ? ForkJoinPool.common.externalHelpComplete((CountedCompleter<?>) this, 0) : ForkJoinPool.common.tryExternalUnpush(this) ? doExec() : 0)) >= 0) {
             while ((s = status) >= 0) {
                 if (U.compareAndSwapInt(this, STATUS, s, s | SIGNAL)) {
                     synchronized (this) {
-                        if (status >= 0) wait(0L);
-                        else notifyAll();
+                        if (status >= 0) {
+                            wait(0L);
+                        } else {
+                            notifyAll();
+                        }
                     }
                 }
             }
@@ -239,7 +253,9 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
                         break;
                     }
                     if (e.get() == this) // already present
+                    {
                         break;
+                    }
                 }
             } finally {
                 lock.unlock();
@@ -427,11 +443,14 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
      * Throws exception, if any, associated with the given status.
      */
     private void reportException(int s) {
-        if (s == CANCELLED) throw new CancellationException();
-        if (s == EXCEPTIONAL) rethrow(getThrowableException());
+        if (s == CANCELLED) {
+            throw new CancellationException();
+        }
+        if (s == EXCEPTIONAL) {
+            rethrow(getThrowableException());
+        }
     }
 
-    // public methods
     /**
      * 将任务放入到当前线程的工作队列中去
      */
