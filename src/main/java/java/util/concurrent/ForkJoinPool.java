@@ -9,24 +9,25 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  *
- * 所谓工作窃取算法，是指一个Worker线程在执行完毕自己队列中的任务之后，可以窃取其他线程队列中的任务来执行，从而实现负载均衡，
- * 以防有的线程很空闲，有的线程很忙。这个过程要用到工作窃取队列，图7-3所示为工作窃取队列示意图。
- *
- *
- * ForkJoinPool非常适合执行任务比较多、执行事件比较短的程序，比如过滤集合中的元素（JDK1.8 stream底层就是ForkJoinPool哟）；
+ * 工作窃取算法，是指一个Worker线程在执行完毕自己队列中的任务之后，可以窃取其他线程队列中的任务来执行，从而实现负载均衡，
+ * 以防有的线程很空闲，有的线程很忙。
+ * 分治算法(Divide-and-Conquer)把任务递归的拆分为各个子任务，这样可以更好的利用系统资源，尽可能的使用所有可用的计算能力来提升应用性能。
+ * <p>
+ * ForkJoinPool非常适合执行任务比较多、执行事件比较短的程序(cpu 密集型,基本都是运算)，
+ * 比如过滤集合中的元素（JDK1.8 stream底层就是ForkJoinPool哟）；
+ * 如果存在 I/O，线程间同步，sleep() 等会造成线程长时间阻塞的情况时，
+ * 最好配合使用 ManagedBlocker。
  * <p>
  * Fork/Join框架主要包含三个模块:
  * 1:任务对象: ForkJoinTask (包括RecursiveTask、RecursiveAction 和 CountedCompleter)
  * 2:执行Fork/Join任务的线程: ForkJoinWorkerThread
  * 3:线程池: ForkJoinPool
  * <p>
- * 分治算法(Divide-and-Conquer)把任务递归的拆分为各个子任务，这样可以更好的利用系统资源，尽可能的使用所有可用的计算能力来提升应用性能。
- * ForkJoinPool 不是为了替代 ExecutorService，而是它的补充，在某些应用场景下性能比 ExecutorService 更好。
- * ForkJoinPool 最适合的是计算密集型的任务，如果存在 I/O，线程间同步，sleep() 等会造成线程长时间阻塞的情况时，
- * 最好配合使用 ManagedBlocker。
- * <p>
+ * 执行任务同步返回结果
  * T invoke(ForkJoinTask<T> task)
+ * 异步提交任务
  * ForkJoinTask<T> submit(ForkJoinTask<T> task)
+ * 异步提交任务
  * void execute(ForkJoinTask<?> task)
  *
  * @since 1.7
@@ -727,7 +728,7 @@ public class ForkJoinPool extends AbstractExecutorService {
      * （3）tc＞0，说明总线程数＞parallelism。
      * tc与ac的差值，也就是总线程数与活跃线程数的差异
      */
-    
+
     volatile long ctl;
     // 运行状态锁
     volatile int runState;
@@ -843,7 +844,6 @@ public class ForkJoinPool extends AbstractExecutorService {
      */
     /**
      * 尝试创建一个线程
-     *
      */
     private void tryAddWorker(long c) {
         boolean add = false;
@@ -976,6 +976,7 @@ public class ForkJoinPool extends AbstractExecutorService {
      * 可以看出，signalWork方法主要是看看有没有休眠的线程，如果有则唤醒线程，
      * 没有的话就看看是不是大于最大线程数，如果没有超过最大线程数，那就创建一个线程来执行.
      * 否则就不管了，因为上一步已经把任务添加到任务队列了，只需等待空闲线程去执行即可。
+     *
      * @param ws the worker array to use to find signallees
      * @param q  a WorkQueue --if non-null, don't retry if now empty
      */
@@ -1074,11 +1075,11 @@ public class ForkJoinPool extends AbstractExecutorService {
 
     /**
      * 首先获取一个随机数作为任务队列的开始扫描索引，如果扫描不到那就线性一个个循环扫描任务队列
-     *
+     * <p>
      * 其次：在扫描到任务之后，尝试使用原子方式获取任务对象，如果失败，说明有其他线程在扫描到了该任务，抢先一步获取了任务对象，故此那就换个索引继续扫描
-     *
+     * <p>
      * 最后：如果任务队列扫描了一遍任务队列依旧没有扫描到，此时工作进程尝试休眠任务队列，然后重新扫描，如果找到任务，则尝试重新激活（自身或某个其他工作进程）；否则返回null
-     *
+     * <p>
      * 如果扫描到任务之后，接着就是执行任务了：
      */
     private ForkJoinTask<?> scan(WorkQueue w, int r) {
@@ -1858,14 +1859,7 @@ public class ForkJoinPool extends AbstractExecutorService {
     // Execution methods
 
     /**
-     * Performs the given task, returning its result upon completion.
-     * If the computation encounters an unchecked Exception or Error,
-     * it is rethrown as the outcome of this invocation.  Rethrown
-     * exceptions behave in the same way as regular exceptions, but,
-     * when possible, contain stack traces (as displayed for example
-     * using {@code ex.printStackTrace()}) of both the current thread
-     * as well as the thread actually encountering the exception;
-     * minimally only the latter.
+     * 执行任务,听同步等待任务结果返回
      *
      * @param task the task
      * @param <T>  the type of the task's result
@@ -1881,12 +1875,10 @@ public class ForkJoinPool extends AbstractExecutorService {
     }
 
     /**
-     * Arranges for (asynchronous) execution of the given task.
-     *
+     * 异步添加任务到队列中去,不等待结果的返回
      * @param task the task
      * @throws NullPointerException       if the task is null
-     * @throws RejectedExecutionException if the task cannot be
-     *                                    scheduled for execution
+     * @throws RejectedExecutionException 如果任务不能被调度执行
      */
     public void execute(ForkJoinTask<?> task) {
         if (task == null) throw new NullPointerException();
@@ -1897,8 +1889,8 @@ public class ForkJoinPool extends AbstractExecutorService {
 
     /**
      * @throws NullPointerException       if the task is null
-     * @throws RejectedExecutionException if the task cannot be
-     *                                    scheduled for execution
+     * @throws RejectedExecutionException if the task cannot be scheduled for execution
+     *
      */
     @Override
     public void execute(Runnable task) {
@@ -1916,14 +1908,14 @@ public class ForkJoinPool extends AbstractExecutorService {
     }
 
     /**
-     * Submits a ForkJoinTask for execution.
+     * 提交一个任务去执行
      *
      * @param task the task to submit
      * @param <T>  the type of the task's result
      * @return the task
      * @throws NullPointerException       if the task is null
-     * @throws RejectedExecutionException if the task cannot be
-     *                                    scheduled for execution
+     * @throws RejectedExecutionException if the task cannot be scheduled for execution
+     *
      */
     public <T> ForkJoinTask<T> submit(ForkJoinTask<T> task) {
         if (task == null) {
