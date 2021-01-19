@@ -28,7 +28,6 @@ package sun.tools.jconsole;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.List;
-import java.util.TreeSet;
 import java.util.Comparator;
 
 import javax.swing.*;

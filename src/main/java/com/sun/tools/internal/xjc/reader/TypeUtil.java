@@ -31,7 +31,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeSet;
 
 import com.sun.codemodel.internal.JClass;
 import com.sun.codemodel.internal.JCodeModel;

@@ -6,8 +6,25 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
 /**
+ * WeakHashMap 的 key 为弱引用，当发生 gc 时，如果 key 只有弱引用到达会被回收，进而导致 entry 被回收。
  * map 的 key 依赖对象的 hashcode 和 equals.
  * 数据结构为 数组+单向链表,key 的 hashcode 计算出的索引相同,在同一个链表下
+ * 每次对map的操作都会剔除失效key对应的Entry；
+ *
+ * @author 张攀钦
+ * <p>
+ * final WeakHashMap weakHashMap = new WeakHashMap();
+ * // weakHashMap.put("1","2"); "1" 被放到字符串常量池中去了，会导致gc root 有强引用到达。
+ * weakHashMap.put(new String("1"), "2");
+ * System.out.println(weakHashMap);
+ * System.gc();
+ * weakHashMap.size();
+ * // 打印的时候没有元素
+ * System.out.println(weakHashMap);
+ */
+
+/**
+ * 线程不安全，可以使用 Collections.synchronizedMap 将map 置为同步 map
  */
 public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
 
@@ -15,22 +32,27 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
 
     /**
      * 2 的 30 次幂 1073741824
+     * 最大元素数量
      */
     private static final int MAXIMUM_CAPACITY = 1 << 30;
-    private static final float DEFAULT_LOAD_FACTOR = 0.75f;
-
-    Entry<K, V>[] table;
 
     /**
-     * table 的数量
+     * 默认负载因子
      */
+    private static final float DEFAULT_LOAD_FACTOR = 0.75f;
 
+    /**
+     * 元素放在 table 的链表下
+     */
+    Entry<K, V>[] table;
+    /**
+     * table 的数量，集合中元素的数量
+     */
     private int size;
 
     /**
-     * table 扩容的值
+     * table 扩容的值，扩容门槛，等于capacity * loadFactor
      */
-
     private int threshold;
 
     /**
@@ -44,7 +66,8 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
     private final ReferenceQueue<Object> queue = new ReferenceQueue<>();
 
     /**
-     * 用于快速失败,遍历的时候不允许修改
+     * 用于快速失败,遍历的时候不允许修改。
+     * 集合操作的次数
      */
     int modCount;
 
@@ -57,16 +80,14 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
      */
     public WeakHashMap(int initialCapacity, float loadFactor) {
         if (initialCapacity < 0) {
-            throw new IllegalArgumentException("Illegal Initial Capacity: " +
-                    initialCapacity);
+            throw new IllegalArgumentException("Illegal Initial Capacity: " + initialCapacity);
         }
         if (initialCapacity > MAXIMUM_CAPACITY) {
             initialCapacity = MAXIMUM_CAPACITY;
         }
 
         if (loadFactor <= 0 || Float.isNaN(loadFactor)) {
-            throw new IllegalArgumentException("Illegal Load factor: " +
-                    loadFactor);
+            throw new IllegalArgumentException("Illegal Load factor: " + loadFactor);
         }
         int capacity = 1;
         while (capacity < initialCapacity) {
@@ -86,9 +107,7 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
     }
 
     public WeakHashMap(Map<? extends K, ? extends V> m) {
-        this(Math.max((int) (m.size() / DEFAULT_LOAD_FACTOR) + 1,
-                DEFAULT_INITIAL_CAPACITY),
-                DEFAULT_LOAD_FACTOR);
+        this(Math.max((int) (m.size() / DEFAULT_LOAD_FACTOR) + 1, DEFAULT_INITIAL_CAPACITY), DEFAULT_LOAD_FACTOR);
         putAll(m);
     }
 
@@ -115,7 +134,7 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
     }
 
     /**
-     * 对一个对象根据其 hashcode 请求 散列
+     * 对一个对象根据其 hashcode 算出索引
      */
     final int hash(Object k) {
         int h = k.hashCode();
@@ -124,19 +143,21 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
     }
 
     /**
-     * 根据一个 hash 求索引
+     *
      */
     private static int indexFor(int h, int length) {
         return h & (length - 1);
     }
 
     /**
-     * 清楚 table 中 k 为 null 的元素
+     * 清除 table 中 k 为 null 的元素。
+     * 遍历引用队列，剔除 table 中的
      */
     private void expungeStaleEntries() {
         for (Object x; (x = queue.poll()) != null; ) {
             synchronized (queue) {
                 Entry<K, V> e = (Entry<K, V>) x;
+                // 算出索引
                 int i = indexFor(e.hash, table.length);
                 Entry<K, V> prev = table[i];
                 Entry<K, V> p = prev;
@@ -224,10 +245,8 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
 
 
     /**
-     * 如果 key 已经存在,直接替换 值,将旧值返回.
-     * 如果 key 不存在,
+     * 如果 key 已经存在,直接替换值,将旧值返回.
      */
-
     @Override
     public V put(K key, V value) {
         Object k = maskNull(key);
@@ -236,7 +255,7 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
         int i = indexFor(h, tab.length);
 
         /**
-         * 查找是不是存在 key
+         * 如果已经存在 key，则将值替换，并返回 oldValue
          */
         for (Entry<K, V> e = tab[i]; e != null; e = e.next) {
             if (h == e.hash && eq(k, e.get())) {
@@ -266,6 +285,9 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
     }
 
 
+    /**
+     * 扩容逻辑
+     */
     void resize(int newCapacity) {
         Entry<K, V>[] oldTable = getTable();
         int oldCapacity = oldTable.length;
@@ -367,8 +389,9 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
 
 
     boolean removeMapping(Object o) {
-        if (!(o instanceof Map.Entry))
+        if (!(o instanceof Map.Entry)) {
             return false;
+        }
         Entry<K, V>[] tab = getTable();
         Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
         Object k = maskNull(entry.getKey());
@@ -382,10 +405,11 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
             if (h == e.hash && e.equals(entry)) {
                 modCount++;
                 size--;
-                if (prev == e)
+                if (prev == e) {
                     tab[i] = next;
-                else
+                } else {
                     prev.next = next;
+                }
                 return true;
             }
             prev = e;
@@ -446,7 +470,9 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
         return false;
     }
 
-
+    /**
+     * key 是弱引用
+     */
     private static class Entry<K, V> extends WeakReference<Object> implements Map.Entry<K, V> {
         // key 对应的值
         V value;
@@ -532,14 +558,16 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
             index = isEmpty() ? 0 : table.length;
         }
 
+        @Override
         public boolean hasNext() {
             Entry<K, V>[] t = table;
 
             while (nextKey == null) {
                 Entry<K, V> e = entry;
                 int i = index;
-                while (e == null && i > 0)
+                while (e == null && i > 0) {
                     e = t[--i];
+                }
                 entry = e;
                 index = i;
                 if (e == null) {
@@ -547,8 +575,9 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
                     return false;
                 }
                 nextKey = e.get(); // hold on to key in strong ref
-                if (nextKey == null)
+                if (nextKey == null) {
                     entry = entry.next;
+                }
             }
             return true;
         }
@@ -557,10 +586,12 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
          * The common parts of next() across different types of iterators
          */
         protected Entry<K, V> nextEntry() {
-            if (modCount != expectedModCount)
+            if (modCount != expectedModCount) {
                 throw new ConcurrentModificationException();
-            if (nextKey == null && !hasNext())
+            }
+            if (nextKey == null && !hasNext()) {
                 throw new NoSuchElementException();
+            }
 
             lastReturned = entry;
             entry = entry.next;
@@ -569,11 +600,14 @@ public class WeakHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V> {
             return lastReturned;
         }
 
+        @Override
         public void remove() {
-            if (lastReturned == null)
+            if (lastReturned == null) {
                 throw new IllegalStateException();
-            if (modCount != expectedModCount)
+            }
+            if (modCount != expectedModCount) {
                 throw new ConcurrentModificationException();
+            }
 
             WeakHashMap.this.remove(currentKey);
             expectedModCount = modCount;

@@ -27,8 +27,6 @@ package sun.misc;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.SortedSet;
-import java.util.TreeSet;
 
 
 /**

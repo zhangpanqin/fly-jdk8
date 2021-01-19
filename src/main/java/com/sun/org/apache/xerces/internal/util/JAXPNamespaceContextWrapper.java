@@ -25,7 +25,6 @@ package com.sun.org.apache.xerces.internal.util;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.TreeSet;
 import java.util.Vector;
 
 import javax.xml.XMLConstants;

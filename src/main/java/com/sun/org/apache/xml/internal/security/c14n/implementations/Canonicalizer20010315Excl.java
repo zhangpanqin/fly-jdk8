@@ -25,8 +25,6 @@ package com.sun.org.apache.xml.internal.security.c14n.implementations;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import javax.xml.parsers.ParserConfigurationException;
 
 import com.sun.org.apache.xml.internal.security.c14n.CanonicalizationException;

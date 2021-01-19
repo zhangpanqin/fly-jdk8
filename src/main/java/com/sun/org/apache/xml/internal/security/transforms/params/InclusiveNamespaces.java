@@ -23,8 +23,6 @@
 package com.sun.org.apache.xml.internal.security.transforms.params;
 
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 
 import com.sun.org.apache.xml.internal.security.exceptions.XMLSecurityException;
 import com.sun.org.apache.xml.internal.security.transforms.TransformParam;

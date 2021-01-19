@@ -48,7 +48,6 @@ import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 
 import java.util.Map;
-import java.util.SortedMap;
 
 import sun.awt.SunToolkit;
 import sun.awt.datatransfer.DataTransferer;

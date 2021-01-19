@@ -9,6 +9,9 @@ import java.security.AccessControlContext;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
+/**
+ * spi 实现
+ */
 public final class ServiceLoader<S> implements Iterable<S> {
 
     /**
@@ -88,12 +91,12 @@ public final class ServiceLoader<S> implements Iterable<S> {
     }
 
 
-    //    以上方法为使用的
+
     public void reload() {
         providers.clear();
         lookupIterator = new LazyIterator(service, loader);
     }
-
+    //    以上方法为使用的
     private ServiceLoader(Class<S> svc, ClassLoader cl) {
         service = Objects.requireNonNull(svc, "Service interface cannot be null");
         loader = (cl == null) ? ClassLoader.getSystemClassLoader() : cl;
@@ -101,26 +104,20 @@ public final class ServiceLoader<S> implements Iterable<S> {
         reload();
     }
 
-    private static void fail(Class<?> service, String msg, Throwable cause)
-            throws ServiceConfigurationError {
-        throw new ServiceConfigurationError(service.getName() + ": " + msg,
-                cause);
+    private static void fail(Class<?> service, String msg, Throwable cause) throws ServiceConfigurationError {
+        throw new ServiceConfigurationError(service.getName() + ": " + msg, cause);
     }
 
-    private static void fail(Class<?> service, String msg)
-            throws ServiceConfigurationError {
+    private static void fail(Class<?> service, String msg) throws ServiceConfigurationError {
         throw new ServiceConfigurationError(service.getName() + ": " + msg);
     }
 
-    private static void fail(Class<?> service, URL u, int line, String msg)
-            throws ServiceConfigurationError {
+    private static void fail(Class<?> service, URL u, int line, String msg) throws ServiceConfigurationError {
         fail(service, u + ":" + line + ": " + msg);
     }
 
 
-    private int parseLine(Class<?> service, URL u, BufferedReader r, int lc,
-                          List<String> names)
-            throws IOException, ServiceConfigurationError {
+    private int parseLine(Class<?> service, URL u, BufferedReader r, int lc, List<String> names) throws IOException, ServiceConfigurationError {
         String ln = r.readLine();
         if (ln == null) {
             return -1;
@@ -152,8 +149,7 @@ public final class ServiceLoader<S> implements Iterable<S> {
         return lc + 1;
     }
 
-    private Iterator<String> parse(Class<?> service, URL u)
-            throws ServiceConfigurationError {
+    private Iterator<String> parse(Class<?> service, URL u) throws ServiceConfigurationError {
         InputStream in = null;
         BufferedReader r = null;
         ArrayList<String> names = new ArrayList<>();
@@ -230,21 +226,17 @@ public final class ServiceLoader<S> implements Iterable<S> {
             try {
                 c = Class.forName(cn, false, loader);
             } catch (ClassNotFoundException x) {
-                fail(service,
-                        "Provider " + cn + " not found");
+                fail(service, "Provider " + cn + " not found");
             }
             if (!service.isAssignableFrom(c)) {
-                fail(service,
-                        "Provider " + cn + " not a subtype");
+                fail(service, "Provider " + cn + " not a subtype");
             }
             try {
                 S p = service.cast(c.newInstance());
                 providers.put(cn, p);
                 return p;
             } catch (Throwable x) {
-                fail(service,
-                        "Provider " + cn + " could not be instantiated",
-                        x);
+                fail(service, "Provider " + cn + " could not be instantiated", x);
             }
             throw new Error();          // This cannot happen
         }

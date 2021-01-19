@@ -36,7 +36,6 @@ import com.sun.java.util.jar.pack.ConstantPool.SignatureEntry;
 import com.sun.java.util.jar.pack.ConstantPool.Utf8Entry;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.SortedMap;
 
 /*
  * @author ksrini

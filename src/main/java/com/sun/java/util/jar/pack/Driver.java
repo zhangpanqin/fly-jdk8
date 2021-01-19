@@ -46,7 +46,6 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.Properties;
 import java.util.ResourceBundle;
-import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;

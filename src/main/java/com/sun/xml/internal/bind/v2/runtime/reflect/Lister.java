@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.LinkedList;
 import java.util.HashSet;
-import java.util.TreeSet;
 import java.util.Stack;
 import java.util.concurrent.Callable;
 

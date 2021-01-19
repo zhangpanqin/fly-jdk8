@@ -62,7 +62,6 @@ import java.util.Locale;
 import java.util.Locale.Category;
 import java.util.Properties;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;

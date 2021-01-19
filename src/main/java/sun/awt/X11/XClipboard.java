@@ -27,7 +27,6 @@ package sun.awt.X11;
 
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.DataFlavor;
-import java.util.SortedMap;
 import java.io.IOException;
 import java.security.AccessController;
 import java.util.HashMap;

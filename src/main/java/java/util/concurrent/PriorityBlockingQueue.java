@@ -9,12 +9,8 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.PriorityQueue;
-import java.util.Queue;
-import java.util.SortedSet;
 import java.util.Spliterator;
 import java.util.function.Consumer;
-
-import sun.misc.SharedSecrets;
 
 /**
  * 优先级阻塞队列.
