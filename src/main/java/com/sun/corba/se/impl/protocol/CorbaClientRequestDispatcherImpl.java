@@ -93,7 +93,7 @@ public class CorbaClientRequestDispatcherImpl
     implements
         ClientRequestDispatcher
 {
-    private ConcurrentMap<ContactInfo, Object> locks =
+    private ConcurrentHashMap<ContactInfo, Object> locks =
             new ConcurrentHashMap<ContactInfo, Object>();
 
     public OutputObject beginRequest(Object self, String opName,
