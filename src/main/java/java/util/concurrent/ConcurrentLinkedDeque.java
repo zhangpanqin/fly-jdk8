@@ -15,6 +15,7 @@ import java.util.function.Consumer;
  * @author 张攀钦
  * 线程安全的双端队列。
  * cas 和 自旋达到无锁双端队列。
+ * ConcurrentLinkedDeque 不具备实时的数据一致性
  */
 public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements Deque<E>, java.io.Serializable {
 
@@ -462,108 +463,81 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
         return (p == q) ? last() : q;
     }
 
+    /**
+     * 返回头部节点
+     */
     Node<E> first() {
         restartFromHead:
         for (; ; ) {
             for (Node<E> h = head, p = h, q; ; ) {
-                if ((q = p.prev) != null && (q = (p = q).prev) != null)
-                    // Check for head updates every other hop.
-                    // If p == q, we are sure to follow head instead.
-                {
+                // 判断 head 是否是头结点
+                if ((q = p.prev) != null && (q = (p = q).prev) != null) {
                     p = (h != (h = head)) ? h : q;
-                } else if (p == h
-                        // It is possible that p is PREV_TERMINATOR,
-                        // but if so, the CAS is guaranteed to fail.
-                        || casHead(h, p)) return p;
-                else continue restartFromHead;
+                    // 自连接或者设置p 为头结点成功返回 p
+                } else if (p == h || casHead(h, p)) {
+                    return p;
+                } else {
+                    continue restartFromHead;
+                }
             }
         }
     }
 
     /**
-     * Returns the last node, the unique node p for which:
-     * p.next == null && p.prev != p
-     * The returned node may or may not be logically deleted.
-     * Guarantees that tail is set to the returned node.
+     * 返回尾部节点
      */
     Node<E> last() {
         restartFromTail:
-        for (; ; )
+        for (; ; ) {
             for (Node<E> t = tail, p = t, q; ; ) {
-                if ((q = p.next) != null && (q = (p = q).next) != null)
-                    // Check for tail updates every other hop.
-                    // If p == q, we are sure to follow tail instead.
+                if ((q = p.next) != null && (q = (p = q).next) != null) {
                     p = (t != (t = tail)) ? t : q;
-                else if (p == t
-                        // It is possible that p is NEXT_TERMINATOR,
-                        // but if so, the CAS is guaranteed to fail.
-                        || casTail(t, p)) return p;
-                else continue restartFromTail;
+                } else if (p == t || casTail(t, p)) {
+                    return p;
+                } else {
+                    continue restartFromTail;
+                }
             }
+        }
     }
 
-    // Minor convenience utilities
 
-    /**
-     * Throws NullPointerException if argument is null.
-     *
-     * @param v the element
-     */
     private static void checkNotNull(Object v) {
-        if (v == null) throw new NullPointerException();
+        if (v == null) {
+            throw new NullPointerException();
+        }
     }
 
-    /**
-     * Returns element unless it is null, in which case throws
-     * NoSuchElementException.
-     *
-     * @param v the element
-     * @return the element
-     */
     private E screenNullResult(E v) {
-        if (v == null) throw new NoSuchElementException();
+        if (v == null) {
+            throw new NoSuchElementException();
+        }
         return v;
     }
 
-    /**
-     * Creates an array list and fills it with elements of this list.
-     * Used by toArray.
-     *
-     * @return the array list
-     */
     private ArrayList<E> toArrayList() {
         ArrayList<E> list = new ArrayList<E>();
         for (Node<E> p = first(); p != null; p = succ(p)) {
             E item = p.item;
-            if (item != null) list.add(item);
+            if (item != null) {
+                list.add(item);
+            }
         }
         return list;
     }
 
-    /**
-     * Constructs an empty deque.
-     */
     public ConcurrentLinkedDeque() {
         head = tail = new Node<E>(null);
     }
 
-    /**
-     * Constructs a deque initially containing the elements of
-     * the given collection, added in traversal order of the
-     * collection's iterator.
-     *
-     * @param c the collection of elements to initially contain
-     * @throws NullPointerException if the specified collection or any
-     *                              of its elements are null
-     */
     public ConcurrentLinkedDeque(Collection<? extends E> c) {
-        // Copy c into a private chain of Nodes
         Node<E> h = null, t = null;
         for (E e : c) {
             checkNotNull(e);
             Node<E> newNode = new Node<E>(e);
-            if (h == null) h = t = newNode;
-            else {
+            if (h == null) {
+                h = t = newNode;
+            } else {
                 t.lazySetNext(newNode);
                 newNode.lazySetPrev(t);
                 t = newNode;
@@ -573,13 +547,13 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
     }
 
     /**
-     * Initializes head and tail, ensuring invariants hold.
+     * 初始化
      */
     private void initHeadTail(Node<E> h, Node<E> t) {
         if (h == t) {
-            if (h == null) h = t = new Node<E>(null);
-            else {
-                // Avoid edge case of a single Node with non-null item.
+            if (h == null) {
+                h = t = new Node<E>(null);
+            } else {
                 Node<E> newNode = new Node<E>(null);
                 t.lazySetNext(newNode);
                 newNode.lazySetPrev(t);
@@ -591,85 +565,103 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
     }
 
     /**
-     * Inserts the specified element at the front of this deque.
-     * As the deque is unbounded, this method will never throw
-     * {@link IllegalStateException}.
-     *
-     * @throws NullPointerException if the specified element is null
+     * 添加元素到头部
      */
+    @Override
     public void addFirst(E e) {
         linkFirst(e);
     }
 
+
     /**
-     * Inserts the specified element at the end of this deque.
-     * As the deque is unbounded, this method will never throw
-     * {@link IllegalStateException}.
-     *
-     * <p>This method is equivalent to {@link #add}.
-     *
-     * @throws NullPointerException if the specified element is null
+     * 添加元素到尾部
      */
+    @Override
     public void addLast(E e) {
         linkLast(e);
     }
 
     /**
-     * Inserts the specified element at the front of this deque.
-     * As the deque is unbounded, this method will never return {@code false}.
-     *
-     * @return {@code true} (as specified by {@link Deque#offerFirst})
-     * @throws NullPointerException if the specified element is null
+     * 添加元素到头部
      */
+    @Override
     public boolean offerFirst(E e) {
         linkFirst(e);
         return true;
     }
 
+
     /**
-     * Inserts the specified element at the end of this deque.
-     * As the deque is unbounded, this method will never return {@code false}.
-     *
-     * <p>This method is equivalent to {@link #add}.
-     *
-     * @return {@code true} (as specified by {@link Deque#offerLast})
-     * @throws NullPointerException if the specified element is null
+     * 添加元素到尾部
      */
+    @Override
     public boolean offerLast(E e) {
         linkLast(e);
         return true;
     }
 
+    /**
+     * 查看头部节点，但是不移除
+     */
+    @Override
     public E peekFirst() {
         for (Node<E> p = first(); p != null; p = succ(p)) {
             E item = p.item;
-            if (item != null) return item;
-        }
-        return null;
-    }
-
-    public E peekLast() {
-        for (Node<E> p = last(); p != null; p = pred(p)) {
-            E item = p.item;
-            if (item != null) return item;
+            if (item != null) {
+                return item;
+            }
         }
         return null;
     }
 
     /**
-     * @throws NoSuchElementException {@inheritDoc}
+     * 查看尾部节点，但是不移除
      */
+    @Override
+    public E peekLast() {
+        for (Node<E> p = last(); p != null; p = pred(p)) {
+            E item = p.item;
+            if (item != null) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public boolean removeFirstOccurrence(Object o) {
+        return false;
+    }
+
+    @Override
+    public boolean removeLastOccurrence(Object o) {
+        return false;
+    }
+
+    /**
+     * 获取头部节点的结果，不移除
+     *
+     * @throws NoSuchElementException 没有头部节点时，抛出异常
+     */
+    @Override
     public E getFirst() {
         return screenNullResult(peekFirst());
     }
 
     /**
+     * 获取尾部节点结果，不移除
+     *
      * @throws NoSuchElementException {@inheritDoc}
      */
+    @Override
     public E getLast() {
         return screenNullResult(peekLast());
     }
 
+    /**
+     * 移除头部节点
+     */
+    @Override
     public E pollFirst() {
         for (Node<E> p = first(); p != null; p = succ(p)) {
             E item = p.item;
@@ -681,6 +673,10 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
         return null;
     }
 
+    /**
+     * 移除尾部节点
+     */
+    @Override
     public E pollLast() {
         for (Node<E> p = last(); p != null; p = pred(p)) {
             E item = p.item;
@@ -693,15 +689,21 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
     }
 
     /**
+     * 移除头部节点
+     *
      * @throws NoSuchElementException {@inheritDoc}
      */
+    @Override
     public E removeFirst() {
         return screenNullResult(pollFirst());
     }
 
     /**
+     * 移除尾部的节点
+     *
      * @throws NoSuchElementException {@inheritDoc}
      */
+    @Override
     public E removeLast() {
         return screenNullResult(pollLast());
     }
@@ -709,228 +711,112 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
     // *** Queue and stack methods ***
 
     /**
-     * Inserts the specified element at the tail of this deque.
-     * As the deque is unbounded, this method will never return {@code false}.
-     *
-     * @return {@code true} (as specified by {@link Queue#offer})
-     * @throws NullPointerException if the specified element is null
+     * 添加元素到队尾
      */
+    @Override
     public boolean offer(E e) {
         return offerLast(e);
     }
 
     /**
-     * Inserts the specified element at the tail of this deque.
-     * As the deque is unbounded, this method will never throw
-     * {@link IllegalStateException} or return {@code false}.
-     *
-     * @return {@code true} (as specified by {@link Collection#add})
-     * @throws NullPointerException if the specified element is null
+     * 添加元素到队尾
      */
+    @Override
     public boolean add(E e) {
         return offerLast(e);
     }
 
+    /**
+     * 移除头部元素
+     */
+    @Override
     public E poll() {
         return pollFirst();
     }
 
+    /**
+     * 获得头部元素
+     */
+    @Override
     public E peek() {
         return peekFirst();
     }
 
     /**
+     * 移除头部元素
+     *
      * @throws NoSuchElementException {@inheritDoc}
      */
+    @Override
     public E remove() {
         return removeFirst();
     }
 
     /**
+     * 移除头部元素
+     *
      * @throws NoSuchElementException {@inheritDoc}
      */
+    @Override
     public E pop() {
         return removeFirst();
     }
 
     /**
+     * 获得头部元素
+     *
      * @throws NoSuchElementException {@inheritDoc}
      */
+    @Override
     public E element() {
         return getFirst();
     }
 
     /**
+     * 添加元素到头部
+     *
      * @throws NullPointerException {@inheritDoc}
      */
+    @Override
     public void push(E e) {
         addFirst(e);
     }
 
-    /**
-     * Removes the first element {@code e} such that
-     * {@code o.equals(e)}, if such an element exists in this deque.
-     * If the deque does not contain the element, it is unchanged.
-     *
-     * @param o element to be removed from this deque, if present
-     * @return {@code true} if the deque contained the specified element
-     * @throws NullPointerException if the specified element is null
-     */
-    public boolean removeFirstOccurrence(Object o) {
-        checkNotNull(o);
-        for (Node<E> p = first(); p != null; p = succ(p)) {
-            E item = p.item;
-            if (item != null && o.equals(item) && p.casItem(item, null)) {
-                unlink(p);
-                return true;
-            }
-        }
-        return false;
-    }
 
     /**
-     * Removes the last element {@code e} such that
-     * {@code o.equals(e)}, if such an element exists in this deque.
-     * If the deque does not contain the element, it is unchanged.
-     *
-     * @param o element to be removed from this deque, if present
-     * @return {@code true} if the deque contained the specified element
-     * @throws NullPointerException if the specified element is null
+     * 是否包含某个元素
      */
-    public boolean removeLastOccurrence(Object o) {
-        checkNotNull(o);
-        for (Node<E> p = last(); p != null; p = pred(p)) {
-            E item = p.item;
-            if (item != null && o.equals(item) && p.casItem(item, null)) {
-                unlink(p);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Returns {@code true} if this deque contains at least one
-     * element {@code e} such that {@code o.equals(e)}.
-     *
-     * @param o element whose presence in this deque is to be tested
-     * @return {@code true} if this deque contains the specified element
-     */
+    @Override
     public boolean contains(Object o) {
         if (o == null) return false;
         for (Node<E> p = first(); p != null; p = succ(p)) {
             E item = p.item;
-            if (item != null && o.equals(item)) return true;
+            if (item != null && o.equals(item)) {
+                return true;
+            }
         }
         return false;
     }
 
-    /**
-     * Returns {@code true} if this collection contains no elements.
-     *
-     * @return {@code true} if this collection contains no elements
-     */
+    @Override
     public boolean isEmpty() {
         return peekFirst() == null;
     }
 
     /**
-     * Returns the number of elements in this deque.  If this deque
-     * contains more than {@code Integer.MAX_VALUE} elements, it
-     * returns {@code Integer.MAX_VALUE}.
-     *
-     * <p>Beware that, unlike in most collections, this method is
-     * <em>NOT</em> a constant-time operation. Because of the
-     * asynchronous nature of these deques, determining the current
-     * number of elements requires traversing them all to count them.
-     * Additionally, it is possible for the size to change during
-     * execution of this method, in which case the returned result
-     * will be inaccurate. Thus, this method is typically not very
-     * useful in concurrent applications.
-     *
-     * @return the number of elements in this deque
-     */
-    public int size() {
-        int count = 0;
-        for (Node<E> p = first(); p != null; p = succ(p))
-            if (p.item != null)
-                // Collection.size() spec says to max out
-                if (++count == Integer.MAX_VALUE) break;
-        return count;
-    }
-
-    /**
-     * Removes the first element {@code e} such that
-     * {@code o.equals(e)}, if such an element exists in this deque.
-     * If the deque does not contain the element, it is unchanged.
-     *
-     * @param o element to be removed from this deque, if present
-     * @return {@code true} if the deque contained the specified element
-     * @throws NullPointerException if the specified element is null
-     */
-    public boolean remove(Object o) {
-        return removeFirstOccurrence(o);
-    }
-
-    /**
-     * Appends all of the elements in the specified collection to the end of
-     * this deque, in the order that they are returned by the specified
-     * collection's iterator.  Attempts to {@code addAll} of a deque to
-     * itself result in {@code IllegalArgumentException}.
-     *
-     * @param c the elements to be inserted into this deque
-     * @return {@code true} if this deque changed as a result of the call
-     * @throws NullPointerException     if the specified collection or any
-     *                                  of its elements are null
-     * @throws IllegalArgumentException if the collection is this deque
+     * 返回值不是精确值
      */
     @Override
-    public boolean addAll(Collection<? extends E> c) {
-        if (c == this) {
-            throw new IllegalArgumentException();
-        }
-
-        // Copy c into a private chain of Nodes
-        Node<E> beginningOfTheEnd = null, last = null;
-        for (E e : c) {
-            checkNotNull(e);
-            Node<E> newNode = new Node<E>(e);
-            if (beginningOfTheEnd == null) beginningOfTheEnd = last = newNode;
-            else {
-                last.lazySetNext(newNode);
-                newNode.lazySetPrev(last);
-                last = newNode;
-            }
-        }
-        if (beginningOfTheEnd == null) return false;
-
-        // Atomically append the chain at the tail of this collection
-        restartFromTail:
-        for (; ; )
-            for (Node<E> t = tail, p = t, q; ; ) {
-                if ((q = p.next) != null && (q = (p = q).next) != null)
-                    // Check for tail updates every other hop.
-                    // If p == q, we are sure to follow tail instead.
-                    p = (t != (t = tail)) ? t : q;
-                else if (p.prev == p) // NEXT_TERMINATOR
-                    continue restartFromTail;
-                else {
-                    // p is last node
-                    beginningOfTheEnd.lazySetPrev(p); // CAS piggyback
-                    if (p.casNext(null, beginningOfTheEnd)) {
-                        // Successful CAS is the linearization point
-                        // for all elements to be added to this deque.
-                        if (!casTail(t, last)) {
-                            // Try a little harder to update tail,
-                            // since we may be adding many elements.
-                            t = tail;
-                            if (last.next == null) casTail(t, last);
-                        }
-                        return true;
-                    }
-                    // Lost CAS race to another thread; re-read next
+    public int size() {
+        int count = 0;
+        for (Node<E> p = first(); p != null; p = succ(p)) {
+            if (p.item != null) {
+                if (++count == Integer.MAX_VALUE) {
+                    break;
                 }
             }
+        }
+        return count;
     }
 
     /**
