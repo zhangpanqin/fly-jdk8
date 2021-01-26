@@ -13,7 +13,8 @@ import java.util.function.Consumer;
 
 /**
  * @author 张攀钦
- * 线程安全的双端队列。无锁双端队列。
+ * 线程安全的双端队列。
+ * cas 和 自旋达到无锁双端队列。
  */
 public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements Deque<E>, java.io.Serializable {
 
@@ -24,6 +25,7 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
 
     private transient volatile Node<E> tail;
 
+    // 终止节点
     private static final Node<Object> PREV_TERMINATOR, NEXT_TERMINATOR;
 
     Node<E> prevTerminator() {
@@ -98,7 +100,8 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
     }
 
     /**
-     * 设置 e 为队列的双端队列
+     * 设置 e 为队列的双端队列。
+     * 入队操作
      */
     private void linkFirst(E e) {
         checkNotNull(e);
@@ -106,103 +109,100 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
 
         restartFromHead:
         for (; ; ) {
+            /**
+             * h 是头部
+             * p 是当前节点
+             * q 是前一个节点
+             */
             for (Node<E> h = head, p = h, q; ; ) {
-                if ((q = p.prev) != null && (q = (p = q).prev) != null)
-                    // Check for head updates every other hop.
-                    // If p == q, we are sure to follow head instead.
-                {
+                // 前驱节点 和 前驱前驱节点不为 null 说明 头部节点被改变了
+                if ((q = p.prev) != null && (q = (p = q).prev) != null) {
+                    // 将 p 赋值为现在的头部节点
                     p = (h != (h = head)) ? h : q;
-                } else if (p.next == p) // PREV_TERMINATOR
-                {
+                    // 自连接循环，重新查找
+                } else if (p.next == p) {
                     continue restartFromHead;
+                    // 走到这里说明 p 是现在的头部节点
                 } else {
-                    // p is first node
-                    newNode.lazySetNext(p); // CAS piggyback
+                    newNode.lazySetNext(p);
+                    // 设置新节点为头部节点成功
                     if (p.casPrev(null, newNode)) {
-                        // Successful CAS is the linearization point
-                        // for e to become an element of this deque,
-                        // and for newNode to become "live".
-                        if (p != h) // hop two nodes at a time
-                        {
-                            casHead(h, newNode);  // Failure is OK.
+                        // 二次判断
+                        if (p != h) {
+                            // h 为现在的头部节点，设置新节点为头部节点
+                            casHead(h, newNode);
                         }
                         return;
                     }
-                    // Lost CAS race to another thread; re-read prev
                 }
             }
         }
     }
 
     /**
-     * Links e as last element.
+     * 设置一个节点为最后一个节点
      */
     private void linkLast(E e) {
         checkNotNull(e);
         final Node<E> newNode = new Node<E>(e);
 
         restartFromTail:
-        for (; ; )
+        for (; ; ) {
             for (Node<E> t = tail, p = t, q; ; ) {
-                if ((q = p.next) != null && (q = (p = q).next) != null)
-                    // Check for tail updates every other hop.
-                    // If p == q, we are sure to follow tail instead.
+                // 判断是否 p 是不是最后一个几点
+                if ((q = p.next) != null && (q = (p = q).next) != null) {
                     p = (t != (t = tail)) ? t : q;
-                else if (p.prev == p) // NEXT_TERMINATOR
+                } else if (p.prev == p) {
                     continue restartFromTail;
-                else {
-                    // p is last node
-                    newNode.lazySetPrev(p); // CAS piggyback
+                } else {
+                    // 走到这里说明 p 是最后一个节点
+                    newNode.lazySetPrev(p);
                     if (p.casNext(null, newNode)) {
-                        // Successful CAS is the linearization point
-                        // for e to become an element of this deque,
-                        // and for newNode to become "live".
-                        if (p != t) // hop two nodes at a time
-                            casTail(t, newNode);  // Failure is OK.
+                        // 二次判断
+                        if (p != t) {
+                            casTail(t, newNode);
+                        }
                         return;
                     }
-                    // Lost CAS race to another thread; re-read next
+
                 }
             }
+        }
     }
 
     private static final int HOPS = 2;
 
     /**
-     * Unlinks non-null node x.
+     * 移除 x 节点
      */
     void unlink(Node<E> x) {
+        // x 的前一个节点
         final Node<E> prev = x.prev;
+        // x 的后一个节点
         final Node<E> next = x.next;
+        // 前一个节点为null 说明 x 是头结点
         if (prev == null) {
+            // 移除 x 节点，将 x 的下一个节点设置为头结点
             unlinkFirst(x, next);
+            // next 节点为null，说明 x 是尾部节点
         } else if (next == null) {
+            // 移除 x 尾部节点设置为 prev
             unlinkLast(x, prev);
         } else {
-            // Unlink interior node.
-            //
-            // This is the common case, since a series of polls at the
-            // same end will be "interior" removes, except perhaps for
-            // the first one, since end nodes cannot be unlinked.
-            //
-            // At any time, all active nodes are mutually reachable by
-            // following a sequence of either next or prev pointers.
-            //
-            // Our strategy is to find the unique active predecessor
-            // and successor of x.  Try to fix up their links so that
-            // they point to each other, leaving x unreachable from
-            // active nodes.  If successful, and if x has no live
-            // predecessor/successor, we additionally try to gc-unlink,
-            // leaving active nodes unreachable from x, by rechecking
-            // that the status of predecessor and successor are
-            // unchanged and ensuring that x is not reachable from
-            // tail/head, before setting x's prev/next links to their
-            // logical approximate replacements, self/TERMINATOR.
+            // 走到这里说明 x 是中间的节点
+            /**
+             * activePred 是有效的前驱节点
+             * activeSucc 是有效的后继节点
+             */
+
             Node<E> activePred, activeSucc;
+            /**
+             * isFirst：是否到达了头部节点
+             * isLast：是否到达了后继节点
+             */
             boolean isFirst, isLast;
             int hops = 1;
-
-            // Find active predecessor
+            // 找到 x 前面的有效前驱节点
             for (Node<E> p = prev; ; ++hops) {
                 if (p.item != null) {
                     activePred = p;
@@ -210,47 +210,61 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
                     break;
                 }
                 Node<E> q = p.prev;
+                // 已经到了头部节点
                 if (q == null) {
-                    if (p.next == p) return;
+                    if (p.next == p) {
+                        return;
+                    }
                     activePred = p;
                     isFirst = true;
                     break;
-                } else if (p == q) return;
-                else p = q;
+                    // 自连接不处理
+                } else if (p == q) {
+                    return;
+                } else {
+                    // 将需要处理的节点往前移动一个
+                    p = q;
+                }
             }
 
-            // Find active successor
+            // 找到一个后继的有效节点
             for (Node<E> p = next; ; ++hops) {
+                // p 是有效节点
                 if (p.item != null) {
                     activeSucc = p;
                     isLast = false;
                     break;
                 }
+                // p 不是有效节点，接着往后找有效节点
                 Node<E> q = p.next;
+                // 达到了尾部节点
                 if (q == null) {
-                    if (p.prev == p) return;
+                    if (p.prev == p) {
+                        return;
+                    }
                     activeSucc = p;
                     isLast = true;
                     break;
-                } else if (p == q) return;
-                else p = q;
+                } else if (p == q) {
+                    return;
+                } else {
+                    p = q;
+                }
             }
 
-            // TODO: better HOP heuristics
-            if (hops < HOPS
-                    // always squeeze out interior deleted nodes
-                    && (isFirst | isLast)) return;
+            // always squeeze out interior deleted nodes
+            if (hops < HOPS && (isFirst | isLast)) {
+                return;
+            }
 
-            // Squeeze out deleted nodes between activePred and
-            // activeSucc, including x.
+            /**
+             * 删除 activePred 和 activeSucc 之间的无效节点
+             */
             skipDeletedSuccessors(activePred);
             skipDeletedPredecessors(activeSucc);
 
-            // Try to gc-unlink, if possible
-            if ((isFirst | isLast) &&
 
-                    // Recheck expected state of predecessor and successor
-                    (activePred.next == activeSucc) && (activeSucc.prev == activePred) && (isFirst ? activePred.prev == null : activePred.item != null) && (isLast ? activeSucc.next == null : activeSucc.item != null)) {
+            if ((isFirst | isLast) && (activePred.next == activeSucc) && (activeSucc.prev == activePred) && (isFirst ? activePred.prev == null : activePred.item != null) && (isLast ? activeSucc.next == null : activeSucc.item != null)) {
 
                 updateHead(); // Ensure x is not reachable from head
                 updateTail(); // Ensure x is not reachable from tail
@@ -263,29 +277,24 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
     }
 
     /**
-     * Unlinks non-null first node.
+     * 移除第一个非 null 节点
      */
     private void unlinkFirst(Node<E> first, Node<E> next) {
-        // assert first != null;
-        // assert next != null;
-        // assert first.item == null;
         for (Node<E> o = null, p = next, q; ; ) {
             if (p.item != null || (q = p.next) == null) {
                 if (o != null && p.prev != p && first.casNext(next, p)) {
                     skipDeletedPredecessors(p);
                     if (first.prev == null && (p.next == null || p.item != null) && p.prev == first) {
-
-                        updateHead(); // Ensure o is not reachable from head
-                        updateTail(); // Ensure o is not reachable from tail
-
-                        // Finally, actually gc-unlink
+                        updateHead();
+                        updateTail();
                         o.lazySetNext(o);
                         o.lazySetPrev(prevTerminator());
                     }
                 }
                 return;
-            } else if (p == q) return;
-            else {
+            } else if (p == q) {
+                return;
+            } else {
                 o = p;
                 p = q;
             }
@@ -293,29 +302,27 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
     }
 
     /**
-     * Unlinks non-null last node.
+     * 移除最后一个非 null 节点
      */
     private void unlinkLast(Node<E> last, Node<E> prev) {
-        // assert last != null;
-        // assert prev != null;
-        // assert last.item == null;
         for (Node<E> o = null, p = prev, q; ; ) {
             if (p.item != null || (q = p.prev) == null) {
                 if (o != null && p.next != p && last.casPrev(prev, p)) {
                     skipDeletedSuccessors(p);
                     if (last.next == null && (p.prev == null || p.item != null) && p.next == last) {
-
-                        updateHead(); // Ensure o is not reachable from head
-                        updateTail(); // Ensure o is not reachable from tail
-
+                        // Ensure o is not reachable from head
+                        updateHead();
+                        // Ensure o is not reachable from tail
+                        updateTail();
                         // Finally, actually gc-unlink
                         o.lazySetPrev(o);
                         o.lazySetNext(nextTerminator());
                     }
                 }
                 return;
-            } else if (p == q) return;
-            else {
+            } else if (p == q) {
+                return;
+            } else {
                 o = p;
                 p = q;
             }
@@ -323,144 +330,154 @@ public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements D
     }
 
     /**
-     * Guarantees that any node which was unlinked before a call to
-     * this method will be unreachable from head after it returns.
-     * Does not guarantee to eliminate slack, only that head will
-     * point to a node that was active while this method was running.
+     * 查找，更新头部节点
      */
     private final void updateHead() {
-        // Either head already points to an active node, or we keep
-        // trying to cas it to the first node until it does.
         Node<E> h, p, q;
         restartFromHead:
+        // h 是头部节点，p 是头节点的 prev 节点
         while ((h = head).item == null && (p = h.prev) != null) {
+            // 头部节点为无效节点，并且 头部节点的前驱节点为 null
             for (; ; ) {
+                //
                 if ((q = p.prev) == null || (q = (p = q).prev) == null) {
-                    // It is possible that p is PREV_TERMINATOR,
-                    // but if so, the CAS is guaranteed to fail.
-                    if (casHead(h, p)) return;
-                    else continue restartFromHead;
-                } else if (h != head) continue restartFromHead;
-                else p = q;
+                    if (casHead(h, p)) {
+                        return;
+                    } else {
+                        continue restartFromHead;
+                    }
+                } else if (h != head) {
+                    continue restartFromHead;
+                } else {
+                    p = q;
+                }
             }
         }
     }
 
     /**
-     * Guarantees that any node which was unlinked before a call to
-     * this method will be unreachable from tail after it returns.
-     * Does not guarantee to eliminate slack, only that tail will
-     * point to a node that was active while this method was running.
+     * 判断是否需要更新尾部节点
      */
     private final void updateTail() {
-        // Either tail already points to an active node, or we keep
-        // trying to cas it to the last node until it does.
         Node<E> t, p, q;
         restartFromTail:
         while ((t = tail).item == null && (p = t.next) != null) {
             for (; ; ) {
                 if ((q = p.next) == null || (q = (p = q).next) == null) {
-                    // It is possible that p is NEXT_TERMINATOR,
-                    // but if so, the CAS is guaranteed to fail.
-                    if (casTail(t, p)) return;
-                    else continue restartFromTail;
-                } else if (t != tail) continue restartFromTail;
-                else p = q;
+                    if (casTail(t, p)) {
+                        return;
+                    } else {
+                        continue restartFromTail;
+                    }
+                } else if (t != tail) {
+                    continue restartFromTail;
+                } else {
+                    p = q;
+                }
             }
         }
     }
 
+    /**
+     * // 删除 x 之前的无效节点
+     */
     private void skipDeletedPredecessors(Node<E> x) {
         whileActive:
         do {
             Node<E> prev = x.prev;
-            // assert prev != null;
-            // assert x != NEXT_TERMINATOR;
-            // assert x != PREV_TERMINATOR;
             Node<E> p = prev;
             findActive:
             for (; ; ) {
-                if (p.item != null) break findActive;
+                if (p.item != null) {
+                    break findActive;
+                }
                 Node<E> q = p.prev;
                 if (q == null) {
-                    if (p.next == p) continue whileActive;
+                    if (p.next == p) {
+                        continue whileActive;
+                    }
                     break findActive;
-                } else if (p == q) continue whileActive;
-                else p = q;
+                } else if (p == q) {
+                    continue whileActive;
+                } else {
+                    p = q;
+                }
             }
-
-            // found active CAS target
-            if (prev == p || x.casPrev(prev, p)) return;
-
+            if (prev == p || x.casPrev(prev, p)) {
+                return;
+            }
         } while (x.item != null || x.next == null);
     }
 
+    /**
+     * 删除 x 之后的无效节点
+     */
     private void skipDeletedSuccessors(Node<E> x) {
         whileActive:
         do {
             Node<E> next = x.next;
-            // assert next != null;
-            // assert x != NEXT_TERMINATOR;
-            // assert x != PREV_TERMINATOR;
             Node<E> p = next;
             findActive:
             for (; ; ) {
-                if (p.item != null) break findActive;
-                Node<E> q = p.next;
-                if (q == null) {
-                    if (p.prev == p) continue whileActive;
+                if (p.item != null) {
                     break findActive;
-                } else if (p == q) continue whileActive;
-                else p = q;
+                }
+                Node<E> q = p.next;
+
+                if (q == null) {
+                    // 自连接节点跳过去
+                    if (p.prev == p) {
+                        continue whileActive;
+                    }
+                    break findActive;
+                } else if (p == q) {
+                    continue whileActive;
+                } else {
+                    p = q;
+                }
             }
 
             // found active CAS target
-            if (next == p || x.casNext(next, p)) return;
+            if (next == p || x.casNext(next, p)) {
+                return;
+            }
 
         } while (x.item != null || x.prev == null);
     }
 
+
     /**
-     * Returns the successor of p, or the first node if p.next has been
-     * linked to self, which will only be true if traversing with a
-     * stale pointer that is now off the list.
+     * 返回 p 的后继几点
      */
     final Node<E> succ(Node<E> p) {
-        // TODO: should we skip deleted nodes here?
         Node<E> q = p.next;
         return (p == q) ? first() : q;
     }
 
     /**
-     * Returns the predecessor of p, or the last node if p.prev has been
-     * linked to self, which will only be true if traversing with a
-     * stale pointer that is now off the list.
+     * 返回 p 的前驱节点
      */
     final Node<E> pred(Node<E> p) {
         Node<E> q = p.prev;
         return (p == q) ? last() : q;
     }
 
-    /**
-     * Returns the first node, the unique node p for which:
-     * p.prev == null && p.next != p
-     * The returned node may or may not be logically deleted.
-     * Guarantees that head is set to the returned node.
-     */
     Node<E> first() {
         restartFromHead:
-        for (; ; )
+        for (; ; ) {
             for (Node<E> h = head, p = h, q; ; ) {
                 if ((q = p.prev) != null && (q = (p = q).prev) != null)
                     // Check for head updates every other hop.
                     // If p == q, we are sure to follow head instead.
+                {
                     p = (h != (h = head)) ? h : q;
-                else if (p == h
+                } else if (p == h
                         // It is possible that p is PREV_TERMINATOR,
                         // but if so, the CAS is guaranteed to fail.
                         || casHead(h, p)) return p;
                 else continue restartFromHead;
             }
+        }
     }
 
     /**
