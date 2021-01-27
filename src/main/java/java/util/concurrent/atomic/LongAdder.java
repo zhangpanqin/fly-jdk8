@@ -9,6 +9,7 @@ import java.io.Serializable;
  * 这个数组中数字的和就是当前 long 的大小
  * <p>
  * 由于获取的数字不是精确的,使用场景为 统计计数的场景,比如 qps
+ * LongAdder 保证了最终一致性
  */
 public class LongAdder extends Striped64 implements Serializable {
     private static final long serialVersionUID = 7249069246863182397L;
