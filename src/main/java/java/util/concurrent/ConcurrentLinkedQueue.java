@@ -471,6 +471,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E> implements Queue<
             this.queue = queue;
         }
 
+        @Override
         public Spliterator<E> trySplit() {
             Node<E> p;
             final ConcurrentLinkedQueue<E> q = this.queue;
@@ -480,10 +481,16 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E> implements Queue<
                 Object[] a = new Object[n];
                 int i = 0;
                 do {
-                    if ((a[i] = p.item) != null) ++i;
-                    if (p == (p = p.next)) p = q.first();
+                    if ((a[i] = p.item) != null) {
+                        ++i;
+                    }
+                    if (p == (p = p.next)) {
+                        p = q.first();
+                    }
                 } while (p != null && i < n);
-                if ((current = p) == null) exhausted = true;
+                if ((current = p) == null) {
+                    exhausted = true;
+                }
                 if (i > 0) {
                     batch = i;
                     return Spliterators.spliterator(a, 0, i, Spliterator.ORDERED | Spliterator.NONNULL | Spliterator.CONCURRENT);
@@ -492,31 +499,45 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E> implements Queue<
             return null;
         }
 
+        @Override
         public void forEachRemaining(Consumer<? super E> action) {
             Node<E> p;
-            if (action == null) throw new NullPointerException();
+            if (action == null) {
+                throw new NullPointerException();
+            }
             final ConcurrentLinkedQueue<E> q = this.queue;
             if (!exhausted && ((p = current) != null || (p = q.first()) != null)) {
                 exhausted = true;
                 do {
                     E e = p.item;
-                    if (p == (p = p.next)) p = q.first();
-                    if (e != null) action.accept(e);
+                    if (p == (p = p.next)) {
+                        p = q.first();
+                    }
+                    if (e != null) {
+                        action.accept(e);
+                    }
                 } while (p != null);
             }
         }
 
+        @Override
         public boolean tryAdvance(Consumer<? super E> action) {
             Node<E> p;
-            if (action == null) throw new NullPointerException();
+            if (action == null) {
+                throw new NullPointerException();
+            }
             final ConcurrentLinkedQueue<E> q = this.queue;
             if (!exhausted && ((p = current) != null || (p = q.first()) != null)) {
                 E e;
                 do {
                     e = p.item;
-                    if (p == (p = p.next)) p = q.first();
+                    if (p == (p = p.next)) {
+                        p = q.first();
+                    }
                 } while (e == null && p != null);
-                if ((current = p) == null) exhausted = true;
+                if ((current = p) == null) {
+                    exhausted = true;
+                }
                 if (e != null) {
                     action.accept(e);
                     return true;
@@ -525,10 +546,12 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E> implements Queue<
             return false;
         }
 
+        @Override
         public long estimateSize() {
             return Long.MAX_VALUE;
         }
 
+        @Override
         public int characteristics() {
             return Spliterator.ORDERED | Spliterator.NONNULL | Spliterator.CONCURRENT;
         }
