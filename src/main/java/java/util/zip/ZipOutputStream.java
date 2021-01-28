@@ -1,28 +1,3 @@
-/*
- * Copyright (c) 1996, 2015, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
 package java.util.zip;
 
 import java.io.OutputStream;
@@ -34,24 +9,10 @@ import java.util.HashSet;
 import static java.util.zip.ZipConstants64.*;
 import static java.util.zip.ZipUtils.*;
 
-/**
- * This class implements an output stream filter for writing files in the
- * ZIP file format. Includes support for both compressed and uncompressed
- * entries.
- *
- * @author      David Connelly
- */
-public
-class ZipOutputStream extends DeflaterOutputStream implements ZipConstants {
 
-    /**
-     * Whether to use ZIP64 for zip files with more than 64k entries.
-     * Until ZIP64 support in zip implementations is ubiquitous, this
-     * system property allows the creation of zip files which can be
-     * read by legacy zip implementations which tolerate "incorrect"
-     * total entry count fields, such as the ones in jdk6, and even
-     * some in jdk7.
-     */
+public class ZipOutputStream extends DeflaterOutputStream implements ZipConstants {
+
+
     private static final boolean inhibitZip64 =
         Boolean.parseBoolean(
             java.security.AccessController.doPrivileged(
@@ -89,46 +50,23 @@ class ZipOutputStream extends DeflaterOutputStream implements ZipConstants {
         }
     }
 
-    /**
-     * Checks to make sure that this stream has not been closed.
-     */
+
     private void ensureOpen() throws IOException {
         if (closed) {
             throw new IOException("Stream closed");
         }
     }
-    /**
-     * Compression method for uncompressed (STORED) entries.
-     */
+
     public static final int STORED = ZipEntry.STORED;
 
-    /**
-     * Compression method for compressed (DEFLATED) entries.
-     */
+
     public static final int DEFLATED = ZipEntry.DEFLATED;
 
-    /**
-     * Creates a new ZIP output stream.
-     *
-     * <p>The UTF-8 {@link Charset charset} is used
-     * to encode the entry names and comments.
-     *
-     * @param out the actual output stream
-     */
+
     public ZipOutputStream(OutputStream out) {
         this(out, StandardCharsets.UTF_8);
     }
 
-    /**
-     * Creates a new ZIP output stream.
-     *
-     * @param out the actual output stream
-     *
-     * @param charset the {@linkplain Charset charset}
-     *                to be used to encode the entry names and comments
-     *
-     * @since 1.7
-     */
     public ZipOutputStream(OutputStream out, Charset charset) {
         super(out, new Deflater(Deflater.DEFAULT_COMPRESSION, true));
         if (charset == null)
@@ -137,12 +75,7 @@ class ZipOutputStream extends DeflaterOutputStream implements ZipConstants {
         usesDefaultDeflater = true;
     }
 
-    /**
-     * Sets the ZIP file comment.
-     * @param comment the comment string
-     * @exception IllegalArgumentException if the length of the specified
-     *            ZIP file comment is greater than 0xFFFF bytes
-     */
+
     public void setComment(String comment) {
         if (comment != null) {
             this.comment = zc.getBytes(comment);
@@ -151,14 +84,7 @@ class ZipOutputStream extends DeflaterOutputStream implements ZipConstants {
         }
     }
 
-    /**
-     * Sets the default compression method for subsequent entries. This
-     * default will be used whenever the compression method is not specified
-     * for an individual ZIP file entry, and is initially set to DEFLATED.
-     * @param method the default compression method
-     * @exception IllegalArgumentException if the specified compression method
-     *            is invalid
-     */
+
     public void setMethod(int method) {
         if (method != DEFLATED && method != STORED) {
             throw new IllegalArgumentException("invalid compression method");

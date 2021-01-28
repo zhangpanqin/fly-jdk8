@@ -4,12 +4,12 @@ import java.io.Serializable;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
  * 线程安全的有序存储数据 Map，key 和 value 都不能为 null
  * 基于跳表，跳表是一种可以用来代替平衡树的数据结构，跳表使用概率平衡而不是严格执行的平衡，因此，与等效树的等效算法相比，跳表中插入和删除的算法要简单得多，并且速度要快得多。
+ * Skip List（简称跳表），一种类似链表的数据结构，其查询/插入/删除的时间复杂度都是O(logn)。
  * <p>
  * Node，数据节点，存储数据的节点，典型的单链表结构
  * Index，索引节点，存储着对应的node值，及向下和向右的索引指针
@@ -31,6 +31,45 @@ import java.util.function.Function;
  * | |->|A|->|B|->|C|->|D|->|E|->|F|->|G|->|H|->|I|->|J|->|K|->null
  * +-+  +-+  +-+  +-+  +-+  +-+  +-+  +-+  +-+  +-+  +-+  +-+
  *
+ *
+ * 下面是一个例子:
+ * 原本: 有3各节点 A, B, C 组成的队列
+ * A -> B -> C (A.next = B, B.next = C)
+ * 现在有两个线程 (thread1, thread2) 进行操作, thread1 进行删除节点B, thread2 在节点B后插入节点D
+ *
+ * 进行操作前:
+ * +------+       +------+      +------+
+ * |   A  |------>|   B  |----->|   C  |
+ * +------+       +------+      +------+
+ *
+ * (1)如果没有标记节点进行操作后:
+ * D 插入到节点B之后成功了, 可是队列的 头结点是 A, 通过A.next().next().next()..... 方法
+ * 无法访问到节点D(D节点已经丢失了)
+ *             +------+      +------+
+ *             |   B  |----->|   D  |
+ *             +------+      +------+
+ *                               |
+ *                               V
+ * +------+                   +------+
+ * |   A  |------>----->----->|   C  |
+ * +------+                   +------+
+ *
+ * (2) 有标记节点的删除
+ * if B.value == null 判断B的value是否为null ----Thread2
+ * B.value = null   ----Thread1
+ * M = new MarkerNode(C); B.caseNext(C, M);----Thread1
+ * A.casNext(B, B.next) ----Thread1
+ * Node D = new Node(); B.casNext(C, D); ---- Thread2
+
+ * 1. Thread 2 准备在B的后面插入一个节点 D, 它判断的时候 B.value != null, 发现 B 没被删除
+ * 2. Thread1 对 B 节点进行删除 B.value = null
+ * 3. Thread 1 在B的后面追加一个 MarkerNode M
+ * 4. Thread 1 将 B 与 M 一起删除
+ * 5. 这时你会发现 Thread 2 的 B.casNext(C, D) 发生的可能 :
+ *   1) 在Thread 1 设置 marker 节点前操作, 则B.casNext(C, D) 成功, B 与 marker 也一起删除
+ *   2) 在Thread 1 设置maker之后, 删除 b与marker之前, 则B.casNext(C, D) 操作失败(b.next 变成maker了), 所以在代码中加个 loop 循环尝试
+ *   3) 在Thread 1 删除 B, marker 之后, 则B.casNext(C, D) 失败(b.next变成maker, B.casNext(C,D) 操作失败, 在 loop 中重新进行尝试插入)
+ * 6. 最终结论 maker 节点的存在致使 非阻塞链表能实现中间节点的删除和插入同时安全进行(反过来就是若没有marker节点, 有可能刚刚插入的数据就丢掉了)
  * @author 张攀钦
  */
 public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements ConcurrentNavigableMap<K, V>, Cloneable, Serializable {
@@ -38,7 +77,7 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
     private static final long serialVersionUID = -8627078645895051609L;
 
     /**
-     * 用于标识基本级别的特殊值
+     * 用于标识最低索引层的 HeadIndex
      */
     private static final Object BASE_HEADER = new Object();
 
@@ -87,14 +126,14 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
     }
 
     /**
-     * compareAndSet head node
+     * cas 修改 head 成员变量
      */
     private boolean casHead(HeadIndex<K, V> cmp, HeadIndex<K, V> val) {
         return UNSAFE.compareAndSwapObject(this, headOffset, cmp, val);
     }
 
     /**
-     * 有序链表
+     * 最下面一层的有序链表,是数据节点
      */
     static final class Node<K, V> {
         final K key;
@@ -107,6 +146,11 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
             this.next = next;
         }
 
+        /**
+         * 创建一个标记节点(通过 this.value = this 来标记)
+         * 这个标记节点非常重要: 有了它, 就能对链表中间节点进行同时删除了插入
+         * ps: ConcurrentLinkedQueue 只能在头上, 尾端进行插入, 中间进行删除
+         */
         Node(Node<K, V> next) {
             this.key = null;
             this.value = this;
@@ -122,7 +166,12 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
         }
 
         /**
-         * TODO marker 具有什么作用
+         * +------+ +------+ +------+
+         * ... | A |------>| B |----->| C | ...
+         * +------+ +------+ +------+
+         * A 和 C 相连.
+         * 如果要删除 A ,首先需要给 A 后续追加一个标记节点,标记 A 要被删除了.
+         * B.value=this 说明 B 是标记节点,也即是说当 A.value==null 的时候, A 是需要删除的节点
          */
         boolean isMarker() {
             return value == this;
@@ -133,17 +182,23 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
             return value == BASE_HEADER;
         }
 
-
-        boolean appendMarker(Node<K, V> f) {
-            return casNext(f, new Node<K, V>(f));
+        // 给 A 追加一个删除节点 B ,
+        boolean appendMarker(Node<K, V> c) {
+            return casNext(c, new Node<K, V>(c));
         }
 
-
+        /**
+         * this 为要删除的节点, b 为 this 的前驱结点, this 为 f 的前驱节点
+         */
         void helpDelete(Node<K, V> b, Node<K, V> f) {
+            // this 在 b 和 f 之间
             if (f == next && this == b.next) {
-                if (f == null || f.value != f) {
+                if (f == null || f.value != f) { // 还没有对删除的节点进行标记
+                    // this 的 next 节点为 标记节点
                     casNext(f, new Node<K, V>(f));
                 } else {
+                    // f !=null && f.value =f,说明 f 也是一个标记节点
+                    // 删除 this 和 f 这两个需要删除的节点
                     b.casNext(this, f.next);
                 }
             }
@@ -188,7 +243,7 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
     /* ---------------- Indexing -------------- */
 
     /**
-     * 索引节点，储存对应的 node ,及向下和向右的 node
+     * 索引节点，储存对应的 node ,及向下和向右的 索引节点
      */
     static class Index<K, V> {
         final Node<K, V> node;
@@ -255,12 +310,17 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
         return (c != null) ? c.compare(x, y) : ((Comparable) x).compareTo(y);
     }
 
+    /**
+     * 从矩形链表的左上角的 HeadIndex 索引开始,也就是 head, 先向右, 遇到 null, 或 > key 时向下, 重复向右向下找.
+     * 一直找到 key 对应的前继节点(前继节点就是小于 key 的最大节点)
+     */
 
     private Node<K, V> findPredecessor(Object key, Comparator<? super K> cmp) {
         if (key == null) {
             throw new NullPointerException(); // don't postpone errors
         }
         for (; ; ) {
+            // q 是前驱节点  r 是右节点
             for (Index<K, V> q = head, r = q.right, d; ; ) {
                 if (r != null) {
                     Node<K, V> n = r.node;
@@ -278,15 +338,20 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
                         continue;
                     }
                 }
+                // r ==null, q.down 为 null 说明查找到数据链表层上了
                 if ((d = q.down) == null) {
-                    return q.node;
+                    return q.node; // q.node < key < r
                 }
+                // 没找到数据,继续往右下找
                 q = d;
                 r = d.right;
             }
         }
     }
 
+    /**
+     * 查找 key 对应的节点,也会帮忙删除删除的节点和标记节点
+     */
     private Node<K, V> findNode(Object key) {
         if (key == null) {
             throw new NullPointerException(); // don't postpone errors
@@ -294,32 +359,37 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
         Comparator<? super K> cmp = comparator;
         outer:
         for (; ; ) {
+            // 找到 key 的前驱节点 b ,n 为 b 的后续节点
             for (Node<K, V> b = findPredecessor(key, cmp), n = b.next; ; ) {
                 Object v;
                 int c;
+                // n 等于 null 说明没有 key 对应的元素
                 if (n == null) {
                     break outer;
                 }
                 Node<K, V> f = n.next;
-                // inconsistent read
+                // 说明有别的线程修改了 b 的后续节点,从最外层循环开始重新查找
                 if (n != b.next) {
                     break;
                 }
-                // n is deleted
+                // n 是一个删除节点
                 if ((v = n.value) == null) {
                     n.helpDelete(b, f);
                     break;
                 }
-                // b is deleted
+                // b 是一个删除节点
                 if (b.value == null || v == n) {
                     break;
                 }
+                // 找到了节点,返回 n
                 if ((c = cpr(cmp, key, n.key)) == 0) {
                     return n;
                 }
+                // 没有找到节点返回 null
                 if (c < 0) {
                     break outer;
                 }
+                // 继续往后遍历
                 b = n;
                 n = f;
             }
@@ -337,33 +407,38 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
         Comparator<? super K> cmp = comparator;
         outer:
         for (; ; ) {
+            // 找到 key 的前驱节点
             for (Node<K, V> b = findPredecessor(key, cmp), n = b.next; ; ) {
                 Object v;
                 int c;
+                // n 等于 null 说明,说明在数据链表那层,已经到最后一个元素了,也可以推理除 key 对应的节点不存在,返回 null
                 if (n == null) {
                     break outer;
                 }
                 Node<K, V> f = n.next;
-                // inconsistent read
+                // 有另外的线程修改了数据,重新从外层循环开始
                 if (n != b.next) {
                     break;
                 }
-                // n is deleted
+                // n 是一个删除节点,帮助处理删除之后,重新从外层循环开始
                 if ((v = n.value) == null) {
                     n.helpDelete(b, f);
                     break;
                 }
-                // b is deleted
+                // b 是删除节点 或者 n 是删除节点
                 if (b.value == null || v == n) {
                     break;
                 }
+                // 找到值姐姐返回
                 if ((c = cpr(cmp, key, n.key)) == 0) {
                     V vv = (V) v;
                     return vv;
                 }
+                // 超过了 key 的比较返回,直接退出外层循环,返回 null
                 if (c < 0) {
                     break outer;
                 }
+                // 向后移动判断
                 b = n;
                 n = f;
             }
@@ -380,8 +455,11 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
         Node<K, V> z;
         Comparator<? super K> cmp = comparator;
         outer:
+        /**
+         * key =value 储存在 node 节点上
+         */
         for (; ; ) {
-            // 找到 key 对应的前驱节点
+            // 找到 key 对应的前驱节点, 新的节点在 b 和 n 之间
             for (Node<K, V> b = findPredecessor(key, cmp), n = b.next; ; ) {
                 if (n != null) {
                     Object v;
@@ -392,13 +470,13 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
                     if (n != b.next) {
                         break;
                     }
-                    // n 是一个删除节点
+                    // 节点 n 已经删除
                     if ((v = n.value) == null) {
                         // 删除 n 这个节点
                         n.helpDelete(b, f);
                         break;
                     }
-                    // 节点 b 是一个删除节点
+                    // 节点 b 在删除中
                     if (b.value == null || v == n) {
                         break;
                     }
@@ -432,26 +510,36 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
         int rnd = ThreadLocalRandom.nextSecondarySeed();
         if ((rnd & 0x80000001) == 0) { // test highest and lowest bits
             int level = 1, max;
-            while (((rnd >>>= 1) & 1) != 0) ++level;
+            while (((rnd >>>= 1) & 1) != 0) {
+                ++level;
+            }
             Index<K, V> idx = null;
             HeadIndex<K, V> h = head;
             if (level <= (max = h.level)) {
-                for (int i = 1; i <= level; ++i)
+                // level 小于最好层索引
+                for (int i = 1; i <= level; ++i) {
                     idx = new Index<K, V>(z, idx, null);
-            } else { // try to grow by one level
-                level = max + 1; // hold in array and later pick the one to use
+                }
+            } else {
+                // 增加一层索引层
+                level = max + 1;
                 Index<K, V>[] idxs = (Index<K, V>[]) new Index<?, ?>[level + 1];
-                for (int i = 1; i <= level; ++i)
+                for (int i = 1; i <= level; ++i) {
                     idxs[i] = idx = new Index<K, V>(z, idx, null);
+                }
                 for (; ; ) {
                     h = head;
                     int oldLevel = h.level;
-                    if (level <= oldLevel) // lost race to add level
+                    if (level <= oldLevel) {
                         break;
+                    }
+                    // level 大于 oldLevel
                     HeadIndex<K, V> newh = h;
                     Node<K, V> oldbase = h.node;
-                    for (int j = oldLevel + 1; j <= level; ++j)
+                    // level 大于 最高索引层,建立 headIndex 那层索引
+                    for (int j = oldLevel + 1; j <= level; ++j) {
                         newh = new HeadIndex<K, V>(oldbase, newh, idxs[j], j);
+                    }
                     if (casHead(h, newh)) {
                         h = newh;
                         idx = idxs[level = oldLevel];
@@ -459,21 +547,28 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
                     }
                 }
             }
-            // find insertion points and splice in
+            // 将插入的索引进行右下拼接
             splice:
             for (int insertionLevel = level; ; ) {
+                // h 是 head
                 int j = h.level;
                 for (Index<K, V> q = h, r = q.right, t = idx; ; ) {
-                    if (q == null || t == null) break splice;
+                    if (q == null || t == null) {
+                        break splice;
+                    }
                     if (r != null) {
                         Node<K, V> n = r.node;
-                        // compare before deletion check avoids needing recheck
                         int c = cpr(cmp, key, n.key);
+                        // n 是删除节点
                         if (n.value == null) {
-                            if (!q.unlink(r)) break;
+                            // q 和 n 上的索引节点 r 就不用连接了,将 q 和 r 的右索引连接
+                            if (!q.unlink(r)) {
+                                break;
+                            }
                             r = q.right;
                             continue;
                         }
+                        // n 不是删除节点,并且比较 key 应该在 n 之后
                         if (c > 0) {
                             q = r;
                             r = r.right;
@@ -481,16 +576,25 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
                         }
                     }
 
+                    // r 等于 null,并且当前 level 和
+
                     if (j == insertionLevel) {
-                        if (!q.link(r, t)) break; // restart
+                        if (!q.link(r, t)) {
+                            break; // restart
+                        }
                         if (t.node.value == null) {
                             findNode(key);
                             break splice;
                         }
-                        if (--insertionLevel == 0) break splice;
+                        if (--insertionLevel == 0) {
+                            break splice;
+                        }
                     }
+                    //
 
-                    if (--j >= insertionLevel && j < level) t = t.down;
+                    if (--j >= insertionLevel && j < level) {
+                        t = t.down;
+                    }
                     q = q.down;
                     r = q.right;
                 }
@@ -507,31 +611,55 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
         Comparator<? super K> cmp = comparator;
         outer:
         for (; ; ) {
+            // 寻找 key 对应的前驱节点 b , n 为 b 的一下个节点
             for (Node<K, V> b = findPredecessor(key, cmp), n = b.next; ; ) {
                 Object v;
                 int c;
-                if (n == null) break outer;
+                if (n == null) {
+                    break outer;
+                }
                 Node<K, V> f = n.next;
-                if (n != b.next)                    // inconsistent read
+                // 别的线程修改了数据,重新从最外层开始查找
+                if (n != b.next) {
                     break;
-                if ((v = n.value) == null) {        // n is deleted
+                }
+                // n 是一个删除节点
+                if ((v = n.value) == null) {
                     n.helpDelete(b, f);
                     break;
                 }
-                if (b.value == null || v == n)      // b is deleted
+                // b 是一个删除节点
+                if (b.value == null || v == n) {
                     break;
-                if ((c = cpr(cmp, key, n.key)) < 0) break outer;
+                }
+                // 没有要删除的节点 key,直接退出最外层循环
+                if ((c = cpr(cmp, key, n.key)) < 0) {
+                    break outer;
+                }
+                // c >0 继续往后查找
                 if (c > 0) {
                     b = n;
                     n = f;
                     continue;
                 }
-                if (value != null && !value.equals(v)) break outer;
-                if (!n.casValue(v, null)) break;
-                if (!n.appendMarker(f) || !b.casNext(n, f)) findNode(key);                  // retry via findNode
-                else {
+                // c == 0, 但是 value 不相等,不能删除这个节点,退出外层循环返回 null
+                if (value != null && !value.equals(v)) {
+                    break outer;
+                }
+                // c==0, 现在的 n 就是要删除的节点
+                // cas 设置失败,重新从最外层循环开始
+                if (!n.casValue(v, null)) {
+                    break;
+                }
+                // cas 设置 n 的成员变量 value 值为 null成功.
+                // 然后给 n 追加标记节点
+                if (!n.appendMarker(f) || !b.casNext(n, f)) {
+                    findNode(key);                  // retry via findNode
+                } else {
                     findPredecessor(key, cmp);      // clean index
-                    if (head.right == null) tryReduceLevel();
+                    if (head.right == null) {
+                        tryReduceLevel();
+                    }
                 }
                 V vv = (V) v;
                 return vv;
@@ -555,6 +683,7 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
     /* ---------------- Finding and removing first element -------------- */
     final Node<K, V> findFirst() {
         for (Node<K, V> b, n; ; ) {
+            // b 为 head 关联的 node,n head 的关联的 node 关联的下一个 node
             if ((n = (b = head.node).next) == null) {
                 return null;
             }
@@ -700,14 +829,6 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
         }
     }
 
-    /**
-     * Specialized variant of findPredecessor to get predecessor of last
-     * valid node.  Needed when removing the last entry.  It is possible
-     * that all successors of returned node will have been deleted upon
-     * return, in which case this method can be retried.
-     *
-     * @return likely predecessor of last node
-     */
     private Node<K, V> findPredecessorOfLast() {
         for (; ; ) {
             for (Index<K, V> q = head; ; ) {
@@ -807,15 +928,6 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
         putAll(m);
     }
 
-    /**
-     * Constructs a new map containing the same mappings and using the
-     * same ordering as the specified sorted map.
-     *
-     * @param m the sorted map whose mappings are to be placed in this
-     *          map, and whose comparator is to be used to sort this map
-     * @throws NullPointerException if the specified sorted map or any of
-     *                              its keys or values are null
-     */
     public ConcurrentSkipListMap(SortedMap<K, ? extends V> m) {
         this.comparator = m.comparator();
         initialize();
@@ -829,7 +941,9 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
      * method.
      */
     private void buildFromSorted(SortedMap<K, ? extends V> map) {
-        if (map == null) throw new NullPointerException();
+        if (map == null) {
+            throw new NullPointerException();
+        }
 
         HeadIndex<K, V> h = head;
         Node<K, V> basepred = h.node;
@@ -839,8 +953,9 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
         ArrayList<Index<K, V>> preds = new ArrayList<Index<K, V>>();
 
         // initialize
-        for (int i = 0; i <= h.level; ++i)
+        for (int i = 0; i <= h.level; ++i) {
             preds.add(null);
+        }
         Index<K, V> q = h;
         for (int i = h.level; i > 0; --i) {
             preds.set(i, q);
@@ -856,11 +971,15 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
                 do {
                     ++j;
                 } while (((rnd >>>= 1) & 1) != 0);
-                if (j > h.level) j = h.level + 1;
+                if (j > h.level) {
+                    j = h.level + 1;
+                }
             }
             K k = e.getKey();
             V v = e.getValue();
-            if (k == null || v == null) throw new NullPointerException();
+            if (k == null || v == null) {
+                throw new NullPointerException();
+            }
             Node<K, V> z = new Node<K, V>(k, v, null);
             basepred.next = z;
             basepred = z;
@@ -868,12 +987,16 @@ public class ConcurrentSkipListMap<K, V> extends AbstractMap<K, V> implements Co
                 Index<K, V> idx = null;
                 for (int i = 1; i <= j; ++i) {
                     idx = new Index<K, V>(z, idx, null);
-                    if (i > h.level) h = new HeadIndex<K, V>(h.node, h, idx, i);
+                    if (i > h.level) {
+                        h = new HeadIndex<K, V>(h.node, h, idx, i);
+                    }
 
                     if (i < preds.size()) {
                         preds.get(i).right = idx;
                         preds.set(i, idx);
-                    } else preds.add(idx);
+                    } else {
+                        preds.add(idx);
+                    }
                 }
             }
         }
