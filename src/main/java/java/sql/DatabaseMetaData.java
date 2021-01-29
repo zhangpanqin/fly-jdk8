@@ -1,321 +1,62 @@
-/*
- * Copyright (c) 1996, 2013, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
-
 package java.sql;
 
-/**
- * Comprehensive information about the database as a whole.
- * <P>
- * This interface is implemented by driver vendors to let users know the capabilities
- * of a Database Management System (DBMS) in combination with
- * the driver based on JDBC&trade; technology
- * ("JDBC driver") that is used with it.  Different relational DBMSs often support
- * different features, implement features in different ways, and use different
- * data types.  In addition, a driver may implement a feature on top of what the
- * DBMS offers.  Information returned by methods in this interface applies
- * to the capabilities of a particular driver and a particular DBMS working
- * together. Note that as used in this documentation, the term "database" is
- * used generically to refer to both the driver and DBMS.
- * <P>
- * A user for this interface is commonly a tool that needs to discover how to
- * deal with the underlying DBMS.  This is especially true for applications
- * that are intended to be used with more than one DBMS. For example, a tool might use the method
- * <code>getTypeInfo</code> to find out what data types can be used in a
- * <code>CREATE TABLE</code> statement.  Or a user might call the method
- * <code>supportsCorrelatedSubqueries</code> to see if it is possible to use
- * a correlated subquery or <code>supportsBatchUpdates</code> to see if it is
- * possible to use batch updates.
- * <P>
- * Some <code>DatabaseMetaData</code> methods return lists of information
- * in the form of <code>ResultSet</code> objects.
- * Regular <code>ResultSet</code> methods, such as
- * <code>getString</code> and <code>getInt</code>, can be used
- * to retrieve the data from these <code>ResultSet</code> objects.  If
- * a given form of metadata is not available, an empty <code>ResultSet</code>
- * will be returned. Additional columns beyond the columns defined to be
- * returned by the <code>ResultSet</code> object for a given method
- * can be defined by the JDBC driver vendor and must be accessed
- * by their <B>column label</B>.
- * <P>
- * Some <code>DatabaseMetaData</code> methods take arguments that are
- * String patterns.  These arguments all have names such as fooPattern.
- * Within a pattern String, "%" means match any substring of 0 or more
- * characters, and "_" means match any one character. Only metadata
- * entries matching the search pattern are returned. If a search pattern
- * argument is set to <code>null</code>, that argument's criterion will
- * be dropped from the search.
- *
- */
 public interface DatabaseMetaData extends Wrapper {
 
     //----------------------------------------------------------------------
     // First, a variety of minor information about the target database.
-
-    /**
-     * Retrieves whether the current user can call all the procedures
-     * returned by the method <code>getProcedures</code>.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean allProceduresAreCallable() throws SQLException;
 
-    /**
-     * Retrieves whether the current user can use all the tables returned
-     * by the method <code>getTables</code> in a <code>SELECT</code>
-     * statement.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean allTablesAreSelectable() throws SQLException;
 
-    /**
-     * Retrieves the URL for this DBMS.
-     *
-     * @return the URL for this DBMS or <code>null</code> if it cannot be
-     *          generated
-     * @exception SQLException if a database access error occurs
-     */
     String getURL() throws SQLException;
 
-    /**
-     * Retrieves the user name as known to this database.
-     *
-     * @return the database user name
-     * @exception SQLException if a database access error occurs
-     */
     String getUserName() throws SQLException;
 
-    /**
-     * Retrieves whether this database is in read-only mode.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean isReadOnly() throws SQLException;
 
-    /**
-     * Retrieves whether <code>NULL</code> values are sorted high.
-     * Sorted high means that <code>NULL</code> values
-     * sort higher than any other value in a domain.  In an ascending order,
-     * if this method returns <code>true</code>,  <code>NULL</code> values
-     * will appear at the end. By contrast, the method
-     * <code>nullsAreSortedAtEnd</code> indicates whether <code>NULL</code> values
-     * are sorted at the end regardless of sort order.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean nullsAreSortedHigh() throws SQLException;
 
-    /**
-     * Retrieves whether <code>NULL</code> values are sorted low.
-     * Sorted low means that <code>NULL</code> values
-     * sort lower than any other value in a domain.  In an ascending order,
-     * if this method returns <code>true</code>,  <code>NULL</code> values
-     * will appear at the beginning. By contrast, the method
-     * <code>nullsAreSortedAtStart</code> indicates whether <code>NULL</code> values
-     * are sorted at the beginning regardless of sort order.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean nullsAreSortedLow() throws SQLException;
 
-    /**
-     * Retrieves whether <code>NULL</code> values are sorted at the start regardless
-     * of sort order.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean nullsAreSortedAtStart() throws SQLException;
 
-    /**
-     * Retrieves whether <code>NULL</code> values are sorted at the end regardless of
-     * sort order.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean nullsAreSortedAtEnd() throws SQLException;
 
-    /**
-     * Retrieves the name of this database product.
-     *
-     * @return database product name
-     * @exception SQLException if a database access error occurs
-     */
+
     String getDatabaseProductName() throws SQLException;
 
-    /**
-     * Retrieves the version number of this database product.
-     *
-     * @return database version number
-     * @exception SQLException if a database access error occurs
-     */
     String getDatabaseProductVersion() throws SQLException;
 
-    /**
-     * Retrieves the name of this JDBC driver.
-     *
-     * @return JDBC driver name
-     * @exception SQLException if a database access error occurs
-     */
     String getDriverName() throws SQLException;
 
-    /**
-     * Retrieves the version number of this JDBC driver as a <code>String</code>.
-     *
-     * @return JDBC driver version
-     * @exception SQLException if a database access error occurs
-     */
     String getDriverVersion() throws SQLException;
 
-    /**
-     * Retrieves this JDBC driver's major version number.
-     *
-     * @return JDBC driver major version
-     */
     int getDriverMajorVersion();
 
-    /**
-     * Retrieves this JDBC driver's minor version number.
-     *
-     * @return JDBC driver minor version number
-     */
     int getDriverMinorVersion();
 
-    /**
-     * Retrieves whether this database stores tables in a local file.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean usesLocalFiles() throws SQLException;
 
-    /**
-     * Retrieves whether this database uses a file for each table.
-     *
-     * @return <code>true</code> if this database uses a local file for each table;
-     *         <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean usesLocalFilePerTable() throws SQLException;
 
-    /**
-     * Retrieves whether this database treats mixed case unquoted SQL identifiers as
-     * case sensitive and as a result stores them in mixed case.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean supportsMixedCaseIdentifiers() throws SQLException;
 
-    /**
-     * Retrieves whether this database treats mixed case unquoted SQL identifiers as
-     * case insensitive and stores them in upper case.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean storesUpperCaseIdentifiers() throws SQLException;
 
-    /**
-     * Retrieves whether this database treats mixed case unquoted SQL identifiers as
-     * case insensitive and stores them in lower case.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean storesLowerCaseIdentifiers() throws SQLException;
 
-    /**
-     * Retrieves whether this database treats mixed case unquoted SQL identifiers as
-     * case insensitive and stores them in mixed case.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean storesMixedCaseIdentifiers() throws SQLException;
 
-    /**
-     * Retrieves whether this database treats mixed case quoted SQL identifiers as
-     * case sensitive and as a result stores them in mixed case.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean supportsMixedCaseQuotedIdentifiers() throws SQLException;
 
-    /**
-     * Retrieves whether this database treats mixed case quoted SQL identifiers as
-     * case insensitive and stores them in upper case.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean storesUpperCaseQuotedIdentifiers() throws SQLException;
 
-    /**
-     * Retrieves whether this database treats mixed case quoted SQL identifiers as
-     * case insensitive and stores them in lower case.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean storesLowerCaseQuotedIdentifiers() throws SQLException;
 
-    /**
-     * Retrieves whether this database treats mixed case quoted SQL identifiers as
-     * case insensitive and stores them in mixed case.
-     *
-     * @return <code>true</code> if so; <code>false</code> otherwise
-     * @exception SQLException if a database access error occurs
-     */
     boolean storesMixedCaseQuotedIdentifiers() throws SQLException;
 
-    /**
-     * Retrieves the string used to quote SQL identifiers.
-     * This method returns a space " " if identifier quoting is not supported.
-     *
-     * @return the quoting string or a space if quoting is not supported
-     * @exception SQLException if a database access error occurs
-     */
     String getIdentifierQuoteString() throws SQLException;
 
-    /**
-     * Retrieves a comma-separated list of all of this database's SQL keywords
-     * that are NOT also SQL:2003 keywords.
-     *
-     * @return the list of this database's keywords that are not also
-     *         SQL:2003 keywords
-     * @exception SQLException if a database access error occurs
-     */
     String getSQLKeywords() throws SQLException;
 
     /**
