@@ -25,8 +25,6 @@
 
 package javax.sql;
 
-import java.sql.SQLException;
-
 /**
  * <P>An <code>Event</code> object that provides information about the
  * source of a connection-related event.  <code>ConnectionEvent</code>

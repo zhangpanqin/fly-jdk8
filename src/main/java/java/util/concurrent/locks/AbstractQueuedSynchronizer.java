@@ -223,12 +223,12 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
             if (h != null && h != tail) {
                 int ws = h.waitStatus;
                 if (ws == Node.SIGNAL) {
+                    // 设置 head 的 waitStatus 为释放锁状态
                     if (!compareAndSetWaitStatus(h, Node.SIGNAL, 0)) {
-                        continue;            // loop to recheck cases
+                        continue;
                     }
                     unparkSuccessor(h);
-                } else if (ws == 0 &&
-                        !compareAndSetWaitStatus(h, 0, Node.PROPAGATE)) {
+                } else if (ws == 0 && !compareAndSetWaitStatus(h, 0, Node.PROPAGATE)) {
                     continue;                // loop on failed CAS
                 }
             }
@@ -265,11 +265,9 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
          * racing acquires/releases, so most need signals now or soon
          * anyway.
          */
-        if (propagate > 0 || h == null || h.waitStatus < 0 ||
-                (h = head) == null || h.waitStatus < 0) {
+        if (propagate > 0 || h == null || h.waitStatus < 0 || (h = head) == null || h.waitStatus < 0) {
             Node s = node.next;
-            if (s == null || s.isShared())
-                doReleaseShared();
+            if (s == null || s.isShared()) doReleaseShared();
         }
     }
 
@@ -314,9 +312,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
             // If successor needs signal, try to set pred's next-link
             // so it will get one. Otherwise wake it up to propagate.
             int ws;
-            if (pred != head && ((ws = pred.waitStatus) == Node.SIGNAL ||
-                    (ws <= 0 && compareAndSetWaitStatus(pred, ws, Node.SIGNAL))) &&
-                    pred.thread != null) {
+            if (pred != head && ((ws = pred.waitStatus) == Node.SIGNAL || (ws <= 0 && compareAndSetWaitStatus(pred, ws, Node.SIGNAL))) && pred.thread != null) {
                 Node next = node.next;
                 if (next != null && next.waitStatus <= 0) {
                     compareAndSetNext(pred, predNext, next);
@@ -345,8 +341,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
     }
 
 
-    private void doAcquireInterruptibly(int arg)
-            throws InterruptedException {
+    private void doAcquireInterruptibly(int arg) throws InterruptedException {
         final Node node = addWaiter(Node.EXCLUSIVE);
         boolean failed = true;
         try {
@@ -376,10 +371,8 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      * @param nanosTimeout max wait time
      * @return {@code true} if acquired
      */
-    private boolean doAcquireNanos(int arg, long nanosTimeout)
-            throws InterruptedException {
-        if (nanosTimeout <= 0L)
-            return false;
+    private boolean doAcquireNanos(int arg, long nanosTimeout) throws InterruptedException {
+        if (nanosTimeout <= 0L) return false;
         final long deadline = System.nanoTime() + nanosTimeout;
         final Node node = addWaiter(Node.EXCLUSIVE);
         boolean failed = true;
@@ -396,8 +389,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
                 if (nanosTimeout <= 0L) {
                     return false;
                 }
-                if (shouldParkAfterFailedAcquire(p, node) &&
-                        nanosTimeout > spinForTimeoutThreshold) {
+                if (shouldParkAfterFailedAcquire(p, node) && nanosTimeout > spinForTimeoutThreshold) {
                     LockSupport.parkNanos(this, nanosTimeout);
                 }
                 if (Thread.interrupted()) {
@@ -430,8 +422,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
                         return;
                     }
                 }
-                if (shouldParkAfterFailedAcquire(p, node) &&
-                        parkAndCheckInterrupt()) {
+                if (shouldParkAfterFailedAcquire(p, node) && parkAndCheckInterrupt()) {
                     interrupted = true;
                 }
             }
@@ -447,8 +438,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      *
      * @param arg the acquire argument
      */
-    private void doAcquireSharedInterruptibly(int arg)
-            throws InterruptedException {
+    private void doAcquireSharedInterruptibly(int arg) throws InterruptedException {
         final Node node = addWaiter(Node.SHARED);
         boolean failed = true;
         try {
@@ -463,9 +453,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
                         return;
                     }
                 }
-                if (shouldParkAfterFailedAcquire(p, node) &&
-                        parkAndCheckInterrupt())
-                    throw new InterruptedException();
+                if (shouldParkAfterFailedAcquire(p, node) && parkAndCheckInterrupt()) throw new InterruptedException();
             }
         } finally {
             if (failed) {
@@ -481,8 +469,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      * @param nanosTimeout max wait time
      * @return {@code true} if acquired
      */
-    private boolean doAcquireSharedNanos(int arg, long nanosTimeout)
-            throws InterruptedException {
+    private boolean doAcquireSharedNanos(int arg, long nanosTimeout) throws InterruptedException {
         if (nanosTimeout <= 0L) {
             return false;
         }
@@ -502,17 +489,13 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
                     }
                 }
                 nanosTimeout = deadline - System.nanoTime();
-                if (nanosTimeout <= 0L)
-                    return false;
-                if (shouldParkAfterFailedAcquire(p, node) &&
-                        nanosTimeout > spinForTimeoutThreshold)
+                if (nanosTimeout <= 0L) return false;
+                if (shouldParkAfterFailedAcquire(p, node) && nanosTimeout > spinForTimeoutThreshold)
                     LockSupport.parkNanos(this, nanosTimeout);
-                if (Thread.interrupted())
-                    throw new InterruptedException();
+                if (Thread.interrupted()) throw new InterruptedException();
             }
         } finally {
-            if (failed)
-                cancelAcquire(node);
+            if (failed) cancelAcquire(node);
         }
     }
 
@@ -627,8 +610,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
     }
 
 
-    public final void acquireInterruptibly(int arg)
-            throws InterruptedException {
+    public final void acquireInterruptibly(int arg) throws InterruptedException {
         if (Thread.interrupted()) {
             throw new InterruptedException();
         }
@@ -638,8 +620,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
     }
 
 
-    public final boolean tryAcquireNanos(int arg, long nanosTimeout)
-            throws InterruptedException {
+    public final boolean tryAcquireNanos(int arg, long nanosTimeout) throws InterruptedException {
         if (Thread.interrupted()) {
             throw new InterruptedException();
         }
@@ -715,12 +696,9 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      * @return {@code true} if acquired; {@code false} if timed out
      * @throws InterruptedException if the current thread is interrupted
      */
-    public final boolean tryAcquireSharedNanos(int arg, long nanosTimeout)
-            throws InterruptedException {
-        if (Thread.interrupted())
-            throw new InterruptedException();
-        return tryAcquireShared(arg) >= 0 ||
-                doAcquireSharedNanos(arg, nanosTimeout);
+    public final boolean tryAcquireSharedNanos(int arg, long nanosTimeout) throws InterruptedException {
+        if (Thread.interrupted()) throw new InterruptedException();
+        return tryAcquireShared(arg) >= 0 || doAcquireSharedNanos(arg, nanosTimeout);
     }
 
     /**
@@ -800,10 +778,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
          */
         Node h, s;
         Thread st;
-        if (((h = head) != null && (s = h.next) != null &&
-                s.prev == head && (st = s.thread) != null) ||
-                ((h = head) != null && (s = h.next) != null &&
-                        s.prev == head && (st = s.thread) != null))
+        if (((h = head) != null && (s = h.next) != null && s.prev == head && (st = s.thread) != null) || ((h = head) != null && (s = h.next) != null && s.prev == head && (st = s.thread) != null))
             return st;
 
         /*
@@ -818,8 +793,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
         Thread firstThread = null;
         while (t != null && t != head) {
             Thread tt = t.thread;
-            if (tt != null)
-                firstThread = tt;
+            if (tt != null) firstThread = tt;
             t = t.prev;
         }
         return firstThread;
@@ -851,10 +825,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      */
     final boolean apparentlyFirstQueuedIsExclusive() {
         Node h, s;
-        return (h = head) != null &&
-                (s = h.next) != null &&
-                !s.isShared() &&
-                s.thread != null;
+        return (h = head) != null && (s = h.next) != null && !s.isShared() && s.thread != null;
     }
 
     public final boolean hasQueuedPredecessors() {
@@ -1054,8 +1025,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      * @throws NullPointerException         if the condition is null
      */
     public final boolean hasWaiters(ConditionObject condition) {
-        if (!owns(condition))
-            throw new IllegalArgumentException("Not owner");
+        if (!owns(condition)) throw new IllegalArgumentException("Not owner");
         return condition.hasWaiters();
     }
 
@@ -1076,8 +1046,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      * @throws NullPointerException         if the condition is null
      */
     public final int getWaitQueueLength(ConditionObject condition) {
-        if (!owns(condition))
-            throw new IllegalArgumentException("Not owner");
+        if (!owns(condition)) throw new IllegalArgumentException("Not owner");
         return condition.getWaitQueueLength();
     }
 
@@ -1098,8 +1067,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      * @throws NullPointerException         if the condition is null
      */
     public final Collection<Thread> getWaitingThreads(ConditionObject condition) {
-        if (!owns(condition))
-            throw new IllegalArgumentException("Not owner");
+        if (!owns(condition)) throw new IllegalArgumentException("Not owner");
         return condition.getWaitingThreads();
     }
 
@@ -1263,9 +1231,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
          * 唤醒之前被中断,返回 THROW_IE
          */
         private int checkInterruptWhileWaiting(Node node) {
-            return Thread.interrupted() ?
-                    (transferAfterCancelledWait(node) ? THROW_IE : REINTERRUPT) :
-                    0;
+            return Thread.interrupted() ? (transferAfterCancelledWait(node) ? THROW_IE : REINTERRUPT) : 0;
         }
 
         /**
@@ -1314,8 +1280,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
          * 等待被唤醒(signalled),中断(interrupted),超时(timed out)
          */
         @Override
-        public final long awaitNanos(long nanosTimeout)
-                throws InterruptedException {
+        public final long awaitNanos(long nanosTimeout) throws InterruptedException {
             if (Thread.interrupted()) {
                 throw new InterruptedException();
             }
@@ -1350,8 +1315,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
 
         @Override
-        public final boolean awaitUntil(Date deadline)
-                throws InterruptedException {
+        public final boolean awaitUntil(Date deadline) throws InterruptedException {
             long abstime = deadline.getTime();
             if (Thread.interrupted()) {
                 throw new InterruptedException();
@@ -1389,8 +1353,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
          * @throws InterruptedException 当前线程被打断,抛出 InterruptedException
          */
         @Override
-        public final boolean await(long time, TimeUnit unit)
-                throws InterruptedException {
+        public final boolean await(long time, TimeUnit unit) throws InterruptedException {
             long nanosTimeout = unit.toNanos(time);
             if (Thread.interrupted()) {
                 throw new InterruptedException();

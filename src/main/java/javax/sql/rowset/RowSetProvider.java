@@ -27,11 +27,10 @@ package javax.sql.rowset;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.sql.SQLException;
 import java.util.PropertyPermission;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
-import javax.sql.rowset.spi.SyncFactoryException;
+
 import sun.reflect.misc.ReflectUtil;
 
 /**

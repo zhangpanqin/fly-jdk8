@@ -25,8 +25,6 @@
 
 package javax.sql.rowset;
 
-import java.sql.SQLException;
-
 /**
  * An extension of <code>SQLException</code> that provides information
  * about database warnings set on <code>RowSet</code> objects.

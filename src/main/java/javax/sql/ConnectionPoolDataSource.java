@@ -25,8 +25,6 @@
 
 package javax.sql;
 
-import java.sql.SQLException;
-
 
 /**
  * A factory for <code>PooledConnection</code>

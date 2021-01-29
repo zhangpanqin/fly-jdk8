@@ -25,8 +25,6 @@
 
 package javax.sql.rowset.spi;
 
-import java.sql.SQLException;
-
 /**
  * Indicates an error with <code>SyncFactory</code> mechanism. A disconnected
  * RowSet implementation cannot be used  without a <code>SyncProvider</code>

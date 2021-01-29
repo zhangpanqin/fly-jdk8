@@ -25,9 +25,6 @@
 
 package javax.sql.rowset.spi;
 
-import java.sql.SQLException;
-import javax.sql.rowset.*;
-
 /**
  * Indicates an error with the <code>SyncProvider</code> mechanism. This exception
  * is created by a <code>SyncProvider</code> abstract class extension if it

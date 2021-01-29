@@ -25,8 +25,6 @@
 
 package javax.sql.rowset;
 
-import java.sql.SQLException;
-
 /**
  * An interface that defines the implementation of a factory that is used
  * to obtain different types of {@code RowSet} implementations.

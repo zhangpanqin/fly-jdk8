@@ -26,8 +26,6 @@
 package javax.sql;
 
 import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Wrapper;
 
 /**
  * <p>A factory for connections to the physical data source that this

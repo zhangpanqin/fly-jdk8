@@ -29,7 +29,6 @@
 package javax.sql;
 
 import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.EventObject;
 
 /**

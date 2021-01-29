@@ -25,11 +25,7 @@
 
 package javax.sql.rowset.spi;
 
-import java.sql.SQLException;
-import java.io.Reader;
-
 import javax.sql.RowSetWriter;
-import javax.sql.rowset.*;
 import java.sql.Savepoint;
 
 /**

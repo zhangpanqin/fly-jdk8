@@ -26,7 +26,6 @@
 package javax.sql.rowset.spi;
 
 import javax.sql.RowSet;
-import java.sql.SQLException;
 
 /**
  * Defines a framework that allows applications to use a manual decision tree

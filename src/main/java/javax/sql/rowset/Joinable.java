@@ -25,8 +25,6 @@
 
 package javax.sql.rowset;
 
-import java.sql.SQLException;
-
 /**
  * <h3>1.0 Background</h3>
  * The <code>Joinable</code> interface provides the methods for getting and

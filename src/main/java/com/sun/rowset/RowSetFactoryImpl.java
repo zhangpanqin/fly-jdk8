@@ -25,7 +25,6 @@
 
 package com.sun.rowset;
 
-import java.sql.SQLException;
 import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.FilteredRowSet;
 import javax.sql.rowset.JdbcRowSet;

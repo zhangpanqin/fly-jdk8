@@ -25,8 +25,6 @@
 
 package javax.sql.rowset.serial;
 
-import java.sql.SQLException;
-
 /**
  * Indicates and an error with the serialization or de-serialization of
  * SQL types such as <code>BLOB, CLOB, STRUCT or ARRAY</code> in
