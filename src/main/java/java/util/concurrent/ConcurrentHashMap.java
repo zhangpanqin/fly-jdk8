@@ -15,14 +15,14 @@ import java.util.function.Function;
  * @author zhangpanqin
  * 线程安全的 Map ,key value 都不能是null
  * Map 中存储数据的数组初始化是懒加载，当 put 的时候才会判断 table 是否初始化了
- *
+ * <p>
  * ConcurrentHashMap.computeIfAbsent 会出现死锁现象
  * public static void main(String[] args) {
  * Map<String, Integer> map = new ConcurrentHashMap<>(16);
- *  map.computeIfAbsent("AaAa", key -> {
- *  return map.computeIfAbsent("BBBB", key2 -> 42);
+ * map.computeIfAbsent("AaAa", key -> {
+ * return map.computeIfAbsent("BBBB", key2 -> 42);
  * });
- *
+ * <p>
  * System.out.println(map.size());
  * }
  */
@@ -302,6 +302,8 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
 
     /**
      * Spinlock (locked via CAS) used when resizing and/or creating CounterCells.
+     * rehash 或者调整 CounterCells 时使用的 cas 修改从 0 到 1 的时候才可以操作扩容及创建 CounterCells。
+     * cellsBusy 为 0 的时候表示没有人在进行扩容或者 CounterCells
      */
     private transient volatile int cellsBusy;
 
@@ -863,13 +865,13 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
     }
 
     /**
-     *  线程安全的操作.当 key 不在 Map 中的时候, 执行 mappingFunction 获得 value 值,将 key -value 存入到当前Map 中去
-     *  mappingFunction 不能使用 computeIfAbsent 方法.否则会造成死锁
-     *  Map<String, Integer> map = new ConcurrentHashMap<>(16);
-     *         map.computeIfAbsent("AaAa", key -> {
-     *             return map.computeIfAbsent("BBBB", key2 -> 42);
-     *         });
-     *
+     * 线程安全的操作.当 key 不在 Map 中的时候, 执行 mappingFunction 获得 value 值,将 key -value 存入到当前Map 中去
+     * mappingFunction 不能使用 computeIfAbsent 方法.否则会造成死锁
+     * Map<String, Integer> map = new ConcurrentHashMap<>(16);
+     * map.computeIfAbsent("AaAa", key -> {
+     * return map.computeIfAbsent("BBBB", key2 -> 42);
+     * });
+     * <p>
      * System.out.println(map.size());
      */
     @Override
@@ -993,7 +995,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
                 tab = initTable();
             } else if ((f = tabAt(tab, i = (n - 1) & h)) == null) {
                 break;
-            // 数据转移
+                // 数据转移
             } else if ((fh = f.hash) == MOVED) {
                 tab = helpTransfer(tab, f);
             } else {
@@ -1010,7 +1012,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
                                     val = remappingFunction.apply(key, e.val);
                                     if (val != null) {
                                         e.val = val;
-                                    // val 为 null
+                                        // val 为 null
                                     } else {
                                         delta = -1;
                                         Node<K, V> en = e.next;
@@ -1027,7 +1029,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
                                     break;
                                 }
                             }
-                        // 红黑树处理
+                            // 红黑树处理
                         } else if (f instanceof TreeBin) {
                             binCount = 2;
                             TreeBin<K, V> t = (TreeBin<K, V>) f;
@@ -1076,7 +1078,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
             // tab 初始化
             if (tab == null || (n = tab.length) == 0) {
                 tab = initTable();
-            // 如果桶上没有元素
+                // 如果桶上没有元素
             } else if ((f = tabAt(tab, i = (n - 1) & h)) == null) {
                 Node<K, V> r = new ReservationNode<K, V>();
                 synchronized (r) {
@@ -1403,22 +1405,21 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
         return tab;
     }
 
+
     /**
-     * Adds to count, and if table is too small and not already
-     * resizing, initiates transfer. If already resizing, helps
-     * perform transfer if work is available.  Rechecks occupancy
-     * after a transfer to see if another resize is already needed
-     * because resizings are lagging additions.
-     *
-     * @param x     the count to add
-     * @param check if <0, don't check resize, if <= 1 only check if uncontended
+     * 1、对 baseCount 进行 cas 更新元素数量，如果没有更新失败，添加到 counterCells 进行参数加减
+     * 2、检查是否需要调整 resize
      */
+
     private final void addCount(long x, int check) {
         CounterCell[] as;
+        // s 为 map 中元素的数量
         long b, s;
+        // cas 修改 baseCount 失败
         if ((as = counterCells) != null || !U.compareAndSwapLong(this, BASECOUNT, b = baseCount, s = b + x)) {
             CounterCell a;
             long v;
+            // m 表示在 counterCells 中的最大索引
             int m;
             boolean uncontended = true;
             if (as == null || (m = as.length - 1) < 0 || (a = as[ThreadLocalRandom.getProbe() & m]) == null || !(uncontended = U.compareAndSwapLong(a, CELLVALUE, v = a.value, v + x))) {
@@ -1430,6 +1431,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
             }
             s = sumCount();
         }
+        // 检查是否需要扩容
         if (check >= 0) {
             Node<K, V>[] tab, nt;
             int n, sc;
@@ -1706,6 +1708,9 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
     }
 
     // See LongAdder version for explanation
+    /**
+     * cas 更新 baseCount 的值，更新失败之后将需要更新的值放入到 counterCells 这个数组中。
+     */
     private final void fullAddCount(long x, boolean wasUncontended) {
         int h;
         if ((h = ThreadLocalRandom.getProbe()) == 0) {
@@ -1716,11 +1721,15 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
         boolean collide = false;                // True if last slot nonempty
         for (; ; ) {
             CounterCell[] as;
+            // a 为当前线上对应的 CounterCell
             CounterCell a;
             int n;
             long v;
+            // 如果 counterCells 已经初始化过
             if ((as = counterCells) != null && (n = as.length) > 0) {
+                // 如果槽上没有元素
                 if ((a = as[(n - 1) & h]) == null) {
+                    // cellsBusy 为0 说明空闲，可以进行扩容
                     if (cellsBusy == 0) {            // Try to attach new Cell
                         CounterCell r = new CounterCell(x); // Optimistic create
                         if (cellsBusy == 0 && U.compareAndSwapInt(this, CELLSBUSY, 0, 1)) {
@@ -1742,8 +1751,8 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
                         }
                     }
                     collide = false;
-                } else if (!wasUncontended)       // CAS already known to fail
-                {
+                    // CAS already known to fail
+                } else if (!wasUncontended) {
                     wasUncontended = true;      // Continue after rehash
                 } else if (U.compareAndSwapLong(a, CELLVALUE, v = a.value, v + x)) {
                     break;
@@ -1765,6 +1774,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
                     continue;                   // Retry with expanded table
                 }
                 h = ThreadLocalRandom.advanceProbe(h);
+                // counterCells 还未初始化，也可能是数组的长度为 0
             } else if (cellsBusy == 0 && counterCells == as && U.compareAndSwapInt(this, CELLSBUSY, 0, 1)) {
                 boolean init = false;
                 try {                           // Initialize table
